@@ -202,22 +202,21 @@
 </div>
 
 <script>
-    // === AUTH LOGIC CENTRALIZAT PE DOWNLOADER ===
-    const API_URL = "https://downloader.creatorsmart.ro"; // Creierul central
-
+    // === AUTH LOGIC INDEPENDENT (FARA CORS ERRORS) ===
     const loginModal = document.getElementById('login-modal');
     function openLoginModal() { loginModal.classList.add('show'); }
     function closeLoginModal() { loginModal.classList.remove('show'); }
     
-    // Cookie-ul trebuie setat pe .creatorsmart.ro ca sa poata fi citit de toate subdomeniile!
-    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
-    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
-    function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+    // Setam cookie-ul local, simplu
+    function setToken(token) { document.cookie = "viralio_caption_token=" + token + "; path=/; max-age=604800; Secure; SameSite=Lax"; }
+    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_caption_token=([^;]*)/); return match ? match[1] : null; }
+    function removeToken() { document.cookie = "viralio_caption_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
     window.handleCredentialResponse = async function(response) {
-        console.log("Se trimite tokenul catre: " + API_URL);
+        console.log("Încercare Login...");
         try {
-            const res = await fetch(`${API_URL}/api/auth/google`, { 
+            // Trimitem catre serverul PROPRIU, care e conectat la aceeasi baza de date MongoDB!
+            const res = await fetch('/api/auth/google', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ credential: response.credential }) 
@@ -228,18 +227,22 @@
                 closeLoginModal(); 
                 updateUI(data.user); 
             } else {
-                console.error("Auth error:", data);
+                console.error("Eroare token:", data);
             }
         } catch (e) { 
-            console.error("CORS / Network Error:", e);
+            console.error("Fetch Login Error:", e);
         }
     }
 
     function updateUI(user) {
-        document.getElementById('login-top-btn').classList.add('hidden');
-        document.getElementById('login-top-btn-mobile').classList.add('hidden');
-        document.getElementById('user-profile').classList.remove('hidden'); 
-        document.getElementById('user-profile').classList.add('flex');
+        const btnDesktop = document.getElementById('login-top-btn');
+        const btnMobile = document.getElementById('login-top-btn-mobile');
+        if(btnDesktop) btnDesktop.classList.add('hidden');
+        if(btnMobile) btnMobile.classList.add('hidden');
+
+        const userNav = document.getElementById('user-profile');
+        userNav.classList.remove('hidden'); 
+        userNav.classList.add('flex');
         
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
@@ -252,8 +255,8 @@
         const token = getToken();
         if(token) {
             try {
-                // Aici verificam cine suntem direct la seful central!
-                const res = await fetch(`${API_URL}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                // Cerem datele contului de la serverul propriu
+                const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) { const data = await res.json(); updateUI(data.user); }
                 else { removeToken(); }
             } catch (e) { console.log("Eroare sesiune centrala."); }
@@ -315,7 +318,7 @@
         document.getElementById('output-result').classList.add('hidden'); document.getElementById('output-loading').classList.add('hidden'); document.getElementById('output-empty').classList.remove('hidden');
     }
 
-    // === PROCESS LOGIC (Trimite la el insusi) ===
+    // === PROCESS LOGIC ===
     document.getElementById('processBtn').addEventListener('click', async () => {
         const token = getToken();
         if(!token) { openLoginModal(); return; }
@@ -341,7 +344,7 @@
         formData.append('method', document.querySelector('input[name="method"]:checked').value);
 
         try {
-            // Trimite la serverul LUI INSUSI (cel instalat pe Coolify pentru caption eraser)
+            // Acum comunica cu el insusi, fara sa iasa din domeniu
             const res = await fetch('/api/remove-caption', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -374,6 +377,5 @@
         }
     });
 </script>
-
 </body>
 </html>

@@ -27,7 +27,6 @@
         .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
         ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         
-        /* Modal Login */
         #login-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(12px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
         #login-modal.show { display: flex; opacity: 1; }
         .modal-content { background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 48px; text-align: center; max-width: 400px; width: 90%; transform: translateY(30px) scale(0.95); transition: 0.4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5); }
@@ -35,17 +34,13 @@
         .close-modal { position: absolute; top: 20px; right: 24px; color: #94a3b8; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
         .close-modal:hover { color: #fff; transform: scale(1.1); }
         
-        /* Custom UI Elements */
         .dropzone-active { border-color: #ec4899 !important; background-color: rgba(236,72,153,0.1) !important; }
         .scanner-line { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #ec4899; box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899; z-index: 20; opacity: 0.8; }
         .glass-panel { background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); }
 
-        /* Custom Sliders for Box Placement */
         input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #3f3f46; border-radius: 4px; outline: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ec4899; cursor: pointer; border: 2px solid #18181b; box-shadow: 0 0 10px rgba(236,72,153,0.5); transition: transform 0.1s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        
-        /* The Draggable / Editable Box */
         #detection-box { transition: background-color 0.2s, backdrop-filter 0.2s, top 0.1s, height 0.1s; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
     </style>
 </head>
@@ -90,10 +85,8 @@
 </div>
 
 <div class="flex-1 flex flex-col lg:flex-row overflow-hidden pt-24 z-10">
-    
     <aside class="w-full lg:w-[420px] glass-panel border-r border-white/10 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto">
         <div class="p-6 flex-1 flex flex-col">
-            
             <div class="flex items-center gap-3 mb-2">
                 <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-eraser"></i></div>
                 <h1 class="text-2xl font-black text-white tracking-tight">Caption Eraser</h1>
@@ -139,7 +132,6 @@
                 
                 <div class="bg-white/5 border border-white/10 rounded-xl p-5 space-y-5">
                     <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">2. Ajustează Masca pe Video</label>
-                    
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-medium text-slate-300">Poziție Verticală (Sus - Jos)</span>
@@ -147,7 +139,6 @@
                         </div>
                         <input type="range" id="box-y" min="0" max="90" value="70">
                     </div>
-
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-medium text-slate-300">Grosime Text (Înălțime)</span>
@@ -158,7 +149,6 @@
                     <p class="text-[0.65rem] text-slate-500 mt-2"><i class="fa-solid fa-info-circle text-pink-500/80"></i> Trage de slidere pentru a acoperi perfect subtitrarea din videoclipul din dreapta.</p>
                 </div>
             </div>
-
         </div>
 
         <div class="p-5 border-t border-white/10 bg-[#0f172a]/80 backdrop-blur sticky bottom-0 z-30">
@@ -176,18 +166,14 @@
         <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 32px 32px;"></div>
 
         <div class="relative w-full h-full max-w-5xl mx-auto flex items-center justify-center z-10">
-            
             <div id="output-empty" class="text-center w-full max-w-md bg-white/5 p-10 rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-sm">
-                <div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center text-4xl text-slate-500 mx-auto mb-6 border border-white/5">
-                    <i class="fa-solid fa-film"></i>
-                </div>
+                <div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center text-4xl text-slate-500 mx-auto mb-6 border border-white/5"><i class="fa-solid fa-film"></i></div>
                 <h2 class="text-2xl font-extrabold text-white mb-3 tracking-tight">Previzualizare Video</h2>
                 <p class="text-slate-400 font-medium text-sm leading-relaxed">Încarcă un video din panoul din stânga pentru a vizualiza cadrul și a așeza masca protectoare.</p>
             </div>
 
             <div id="output-preview" class="hidden w-full h-full max-w-3xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 relative">
                 <video id="preview-player" class="w-full h-full object-contain" controls></video>
-                
                 <div id="detection-box" class="absolute left-0 right-0 border-y-2 border-pink-500 bg-pink-500/20 hidden flex items-center justify-center pointer-events-none" style="top: 70%; height: 20%;">
                     <span class="bg-pink-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-lg">Zonă Acoperită</span>
                 </div>
@@ -211,26 +197,27 @@
                     </button>
                 </div>
             </div>
-            
         </div>
     </section>
-
 </div>
 
 <script>
-    // === AUTH LOGIC FIX (Global Scope for Google & Cross-Origin) ===
+    // === AUTH LOGIC CENTRALIZAT PE DOWNLOADER ===
+    const API_URL = "https://downloader.creatorsmart.ro"; // Creierul central
+
     const loginModal = document.getElementById('login-modal');
     function openLoginModal() { loginModal.classList.add('show'); }
     function closeLoginModal() { loginModal.classList.remove('show'); }
+    
+    // Cookie-ul trebuie setat pe .creatorsmart.ro ca sa poata fi citit de toate subdomeniile!
     function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
     function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
     function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
     window.handleCredentialResponse = async function(response) {
-        console.log("Încercare Login prin API central...");
+        console.log("Se trimite tokenul catre: " + API_URL);
         try {
-            // Trimitem token-ul la API-ul central de autentificare
-            const res = await fetch('https://downloader.creatorsmart.ro/api/auth/google', { 
+            const res = await fetch(`${API_URL}/api/auth/google`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ credential: response.credential }) 
@@ -241,22 +228,18 @@
                 closeLoginModal(); 
                 updateUI(data.user); 
             } else {
-                console.error("Eroare token:", data);
+                console.error("Auth error:", data);
             }
         } catch (e) { 
-            console.error("Fetch Login Error:", e);
+            console.error("CORS / Network Error:", e);
         }
     }
 
     function updateUI(user) {
-        const btnDesktop = document.getElementById('login-top-btn');
-        const btnMobile = document.getElementById('login-top-btn-mobile');
-        if(btnDesktop) btnDesktop.classList.add('hidden');
-        if(btnMobile) btnMobile.classList.add('hidden');
-
-        const userNav = document.getElementById('user-profile');
-        userNav.classList.remove('hidden'); 
-        userNav.classList.add('flex');
+        document.getElementById('login-top-btn').classList.add('hidden');
+        document.getElementById('login-top-btn-mobile').classList.add('hidden');
+        document.getElementById('user-profile').classList.remove('hidden'); 
+        document.getElementById('user-profile').classList.add('flex');
         
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
@@ -269,11 +252,11 @@
         const token = getToken();
         if(token) {
             try {
-                // Verificare sesiune activa pe serverul central
-                const res = await fetch('https://downloader.creatorsmart.ro/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                // Aici verificam cine suntem direct la seful central!
+                const res = await fetch(`${API_URL}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) { const data = await res.json(); updateUI(data.user); }
                 else { removeToken(); }
-            } catch (e) {}
+            } catch (e) { console.log("Eroare sesiune centrala."); }
         }
     };
 
@@ -284,23 +267,14 @@
     const detectionBox = document.getElementById('detection-box');
     let currentVideoFile = null;
 
-    // Sliders Logic & Visual Update
     const sliderY = document.getElementById('box-y');
     const sliderH = document.getElementById('box-h');
     const valY = document.getElementById('val-y');
     const valH = document.getElementById('val-h');
     
-    sliderY.addEventListener('input', (e) => {
-        detectionBox.style.top = e.target.value + '%';
-        valY.innerText = e.target.value + '%';
-    });
-    
-    sliderH.addEventListener('input', (e) => {
-        detectionBox.style.height = e.target.value + '%';
-        valH.innerText = e.target.value + '%';
-    });
+    sliderY.addEventListener('input', (e) => { detectionBox.style.top = e.target.value + '%'; valY.innerText = e.target.value + '%'; });
+    sliderH.addEventListener('input', (e) => { detectionBox.style.height = e.target.value + '%'; valH.innerText = e.target.value + '%'; });
 
-    // Radio Buttons (Blur vs Inpaint)
     document.querySelectorAll('input[name="method"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             if(e.target.value === 'blur') {
@@ -313,69 +287,42 @@
         });
     });
 
-    // Drag and Drop
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dropzone-active'); });
     dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dropzone-active'); });
-    dropZone.addEventListener('drop', (e) => { 
-        e.preventDefault(); dropZone.classList.remove('dropzone-active'); 
-        if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); 
-    });
-    fileInput.addEventListener('change', (e) => {
-        if(e.target.files.length) handleFile(e.target.files[0]);
-    });
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dropzone-active'); if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', (e) => { if(e.target.files.length) handleFile(e.target.files[0]); });
 
     function handleFile(file) {
         if(!file.type.startsWith('video/')) { alert('Te rog încarcă un fișier video valid!'); return; }
-        
         currentVideoFile = file;
-        const url = URL.createObjectURL(file);
         
         document.getElementById('fileName').innerText = file.name;
         document.getElementById('fileSize').innerText = (file.size / (1024*1024)).toFixed(1) + ' MB';
-        dropZone.classList.add('hidden');
-        fileInfo.classList.remove('hidden');
-        fileInfo.classList.add('flex');
-
-        document.getElementById('output-empty').classList.add('hidden');
-        document.getElementById('output-result').classList.add('hidden');
-        document.getElementById('output-loading').classList.add('hidden');
+        dropZone.classList.add('hidden'); fileInfo.classList.remove('hidden'); fileInfo.classList.add('flex');
+        document.getElementById('output-empty').classList.add('hidden'); document.getElementById('output-result').classList.add('hidden'); document.getElementById('output-loading').classList.add('hidden');
         
         const previewSection = document.getElementById('output-preview');
-        const player = document.getElementById('preview-player');
-        
-        player.src = url;
+        document.getElementById('preview-player').src = URL.createObjectURL(file);
         previewSection.classList.remove('hidden');
-        
-        // Afisam masca ajustabila dupa 1 secunda (efect wow)
-        setTimeout(() => {
-            detectionBox.classList.remove('hidden');
-        }, 800);
+        setTimeout(() => { detectionBox.classList.remove('hidden'); }, 800);
     }
 
     function clearFile() {
-        currentVideoFile = null;
-        fileInput.value = '';
-        fileInfo.classList.add('hidden');
-        fileInfo.classList.remove('flex');
-        dropZone.classList.remove('hidden');
-        
-        document.getElementById('output-preview').classList.add('hidden');
-        detectionBox.classList.add('hidden');
-        document.getElementById('output-result').classList.add('hidden');
-        document.getElementById('output-loading').classList.add('hidden');
-        document.getElementById('output-empty').classList.remove('hidden');
+        currentVideoFile = null; fileInput.value = '';
+        fileInfo.classList.add('hidden'); fileInfo.classList.remove('flex'); dropZone.classList.remove('hidden');
+        document.getElementById('output-preview').classList.add('hidden'); detectionBox.classList.add('hidden');
+        document.getElementById('output-result').classList.add('hidden'); document.getElementById('output-loading').classList.add('hidden'); document.getElementById('output-empty').classList.remove('hidden');
     }
 
-    // === PROCESS LOGIC (Apeleaza serverul propriu) ===
+    // === PROCESS LOGIC (Trimite la el insusi) ===
     document.getElementById('processBtn').addEventListener('click', async () => {
         const token = getToken();
         if(!token) { openLoginModal(); return; }
         if(!currentVideoFile) { alert("Încarcă un video mai întâi!"); return; }
 
         const btn = document.getElementById('processBtn');
-        btn.disabled = true; 
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SE PROCESEAZĂ...';
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SE PROCESEAZĂ...';
 
         document.getElementById('output-preview').classList.add('hidden');
         const loaderSection = document.getElementById('output-loading');
@@ -387,7 +334,6 @@
         let step = 0; const msgs = ["Analiză cadre...", "Extragere zonă marcată...", "Aplicare Filtru AI...", "Randare finală 1080p..."];
         const textInterval = setInterval(() => { step++; if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; }, 1500);
 
-        // FORM DATA
         const formData = new FormData();
         formData.append('video', currentVideoFile);
         formData.append('boxY', sliderY.value);
@@ -395,7 +341,7 @@
         formData.append('method', document.querySelector('input[name="method"]:checked').value);
 
         try {
-            // Apeleaza serverul din spate de pe acelasi VPS (Coolify routing)
+            // Trimite la serverul LUI INSUSI (cel instalat pe Coolify pentru caption eraser)
             const res = await fetch('/api/remove-caption', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -403,14 +349,12 @@
             });
             
             const data = await res.json();
-            clearInterval(textInterval); 
-            loaderSection.classList.add('hidden');
+            clearInterval(textInterval); loaderSection.classList.add('hidden');
             
             if (!res.ok) throw new Error(data.error || "Eroare la procesare server.");
 
             const resultSection = document.getElementById('output-result');
-            const resultPlayer = document.getElementById('result-player');
-            resultPlayer.src = data.downloadUrl; 
+            document.getElementById('result-player').src = data.downloadUrl; 
             
             document.getElementById('download-btn').onclick = () => {
                 const a = document.createElement('a');
@@ -419,21 +363,14 @@
                 a.click();
             };
 
-            if(document.getElementById('nav-credits')) {
-                document.getElementById('nav-credits').innerText = data.creditsLeft;
-            }
+            if(document.getElementById('nav-credits')) document.getElementById('nav-credits').innerText = data.creditsLeft;
             
             resultSection.classList.remove('hidden');
-            btn.disabled = false; 
-            btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
-
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
         } catch (err) {
-            clearInterval(textInterval);
-            loaderSection.classList.add('hidden');
-            document.getElementById('output-empty').classList.remove('hidden');
+            clearInterval(textInterval); loaderSection.classList.add('hidden'); document.getElementById('output-empty').classList.remove('hidden');
             alert("Eroare: " + err.message);
-            btn.disabled = false; 
-            btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
         }
     });
 </script>

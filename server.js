@@ -24,7 +24,15 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 } // Limita 100MB
 });
 
-app.use(cors({ origin: '*' }));
+app.use(cors({
+    origin: [
+        'https://creatorsmart.ro', 
+        'https://downloader.creatorsmart.ro', 
+        'https://captions.creatorsmart.ro', 
+        'https://audiocut.creatorsmart.ro'
+    ],
+    credentials: true // Permite trimiterea token-urilor/cookie-urilor intre subdomenii!
+}));
 app.use(express.json());
 // Servim HTML-ul din folderul "public"
 app.use(express.static(path.join(__dirname, 'public'))); 

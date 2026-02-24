@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Caption Eraser | Viralio</title>
+    <title>Caption Eraser | Viralio Pro</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,205 +16,209 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: { viralio: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', accent: '#ec4899' } },
-                    animation: { 'scan': 'scan 2.5s linear infinite' },
+                    animation: { 'scan': 'scan 2s linear infinite' },
                     keyframes: { scan: { '0%': { transform: 'translateY(-100%)' }, '100%': { transform: 'translateY(1000%)' } } }
                 }
             }
         }
     </script>
     <style>
-        body { background-color: #F8FAFC; overflow-x: hidden; }
+        body { background-color: #09090b; overflow-x: hidden; color: #f8fafc; }
         .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         
-        #login-modal { display: none; position: fixed; inset: 0; background: rgba(9, 9, 11, 0.75); backdrop-filter: blur(12px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; }
+        /* Modal Login */
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(12px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
         #login-modal.show { display: flex; opacity: 1; }
-        .modal-content { background: #ffffff; border-radius: 2rem; padding: 48px; text-align: center; max-width: 400px; width: 90%; transform: translateY(30px) scale(0.95); transition: 0.5s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.4); }
+        .modal-content { background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 48px; text-align: center; max-width: 400px; width: 90%; transform: translateY(30px) scale(0.95); transition: 0.4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5); }
         #login-modal.show .modal-content { transform: translateY(0) scale(1); }
         .close-modal { position: absolute; top: 20px; right: 24px; color: #94a3b8; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
-        .close-modal:hover { color: #0f172a; transform: scale(1.1); }
+        .close-modal:hover { color: #fff; transform: scale(1.1); }
         
-        .dropzone-active { border-color: #ec4899 !important; background-color: #fdf2f8 !important; }
+        /* Custom UI Elements */
+        .dropzone-active { border-color: #ec4899 !important; background-color: rgba(236,72,153,0.1) !important; }
         .scanner-line { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #ec4899; box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899; z-index: 20; opacity: 0.8; }
+        .glass-panel { background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); }
 
         /* Custom Sliders for Box Placement */
-        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 4px; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ec4899; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #3f3f46; border-radius: 4px; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ec4899; cursor: pointer; border: 2px solid #18181b; box-shadow: 0 0 10px rgba(236,72,153,0.5); transition: transform 0.1s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         
         /* The Draggable / Editable Box */
-        #detection-box { transition: background-color 0.3s, backdrop-filter 0.3s; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); } /* Focuses attention on the box */
+        #detection-box { transition: background-color 0.2s, backdrop-filter 0.2s, top 0.1s, height 0.1s; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
     </style>
 </head>
-<body class="md:p-4 h-[100dvh] flex flex-col">
+<body class="h-[100dvh] flex flex-col">
 
-<div class="bg-white md:rounded-[1.5rem] flex-1 shadow-xl overflow-hidden relative border border-slate-100 flex flex-col">
-    <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<div class="absolute top-0 right-0 w-[600px] h-[600px] bg-pink-500/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen"></div>
 
-    <div class="z-50 flex w-full justify-center px-2 py-4 md:px-6 md:pt-4 pb-2">
-        <nav class="w-full rounded-2xl border border-slate-200 bg-white/90 backdrop-blur-md shadow-sm px-5 md:px-6 py-2.5 flex justify-between items-center relative z-10">
-            <a class="flex items-center font-black text-xl tracking-tight text-slate-900 group" href="https://creatorsmart.ro">
-                <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
-                Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Caption Eraser</span>
-            </a>
+<div class="fixed top-4 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
+    <nav class="pointer-events-auto w-full max-w-7xl rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl px-5 md:px-6 py-3 flex justify-between items-center transition-all duration-500">
+        <a class="flex items-center font-black text-xl tracking-tight text-white group" href="https://creatorsmart.ro">
+            <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-3 shadow-lg group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
+            Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-3 border-l border-slate-700 pl-3">Caption Eraser</span>
+        </a>
+        
+        <div class="flex items-center justify-end space-x-3">
+            <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2 bg-white text-black rounded-xl hover:bg-slate-200 transition-all font-bold shadow-md text-sm hidden sm:block">Conectează-te</button>
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden px-3 py-1.5 bg-white text-black rounded-lg font-bold text-xs"><i class="fa-solid fa-user"></i></button>
             
-            <div class="flex items-center justify-end space-x-3">
-                <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm hidden sm:block">Conectează-te</button>
-                <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden px-3 py-1.5 bg-slate-900 text-white rounded-lg font-semibold text-xs"><i class="fa-solid fa-user"></i></button>
-                
-                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1 pr-1.5 rounded-full">
-                    <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
-                    <div class="flex flex-col leading-none ml-2 mr-2 hidden md:flex">
-                        <span id="nav-name" class="text-[0.7rem] font-bold text-slate-900 mb-0.5"></span>
-                        <span class="text-[0.6rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
-                    </div>
-                    <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
+            <div id="user-profile" class="hidden items-center bg-white/10 border border-white/20 py-1 pl-1.5 pr-2 rounded-full shadow-sm">
+                <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-600">
+                <div class="flex flex-col leading-none ml-2 mr-3 hidden md:flex">
+                    <span id="nav-name" class="text-xs font-bold text-white mb-0.5"></span>
+                    <span class="text-[0.6rem] font-bold text-pink-400 tracking-wider"><span id="nav-credits">0</span> CREDITE</span>
                 </div>
-            </div>
-        </nav>
-    </div>
-
-    <div id="login-modal">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeLoginModal()"><i class="fa-solid fa-xmark text-lg"></i></button>
-            <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-viralio-600 flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
-            <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Access Viralio</h2>
-            <p class="text-slate-500 text-sm mb-6">Autentifică-te pentru a procesa videoclipuri.</p>
-            <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100">
-                <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-                <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+                <button onclick="logout()" class="w-7 h-7 rounded-full bg-white/10 text-slate-300 hover:text-red-400 hover:bg-red-500/20 flex items-center justify-center transition-all ml-1"><i class="fa-solid fa-power-off text-xs"></i></button>
             </div>
         </div>
-    </div>
+    </nav>
+</div>
 
-    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden border-t border-slate-100 z-10">
-        
-        <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto shadow-[0_-10px_20px_rgba(0,0,0,0.05)] lg:shadow-none">
-            <div class="p-6 flex-1 flex flex-col">
-                
-                <div class="flex items-center gap-3 mb-2">
-                    <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-eraser"></i></div>
-                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Caption Eraser</h1>
-                </div>
-                <p class="text-slate-500 font-medium text-sm mb-6 leading-relaxed">Încarcă video-ul și folosește controalele de mai jos pentru a așeza masca exact peste text.</p>
-
-                <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center cursor-pointer hover:border-pink-500 hover:bg-pink-50 transition-all group mb-8">
-                    <div class="w-14 h-14 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center text-xl mx-auto mb-4 group-hover:bg-pink-100 group-hover:text-pink-600 transition-colors shadow-sm"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                    <p class="text-base font-bold text-slate-700 mb-1">Încarcă fișierul Video</p>
-                    <p class="text-xs text-slate-500 font-medium">MP4, MOV (Max 100MB)</p>
-                    <input type="file" id="fileInput" class="hidden" accept="video/mp4,video/quicktime">
-                </div>
-
-                <div id="fileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-pink-500 shadow-sm"><i class="fa-solid fa-file-video"></i></div>
-                    <div class="flex-1 overflow-hidden">
-                        <p id="fileName" class="font-bold text-sm text-slate-900 truncate"></p>
-                        <p id="fileSize" class="text-[0.65rem] text-slate-500 font-medium uppercase tracking-wider"></p>
-                    </div>
-                    <button onclick="clearFile()" class="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors"><i class="fa-solid fa-trash text-sm"></i></button>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. Metodă Acoperire</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="cursor-pointer">
-                                <input type="radio" name="method" value="blur" class="hidden peer">
-                                <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all opacity-70 hover:opacity-100">
-                                    <i class="fa-solid fa-droplet text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
-                                    <p class="text-xs font-bold text-slate-700">Pixelare / Blur</p>
-                                </div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="radio" name="method" value="inpaint" class="hidden peer" checked>
-                                <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all">
-                                    <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
-                                    <p class="text-xs font-bold text-slate-700">AI Inpainting <span class="text-[0.6rem] bg-pink-100 text-pink-600 px-1 rounded">PRO</span></p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. Ajustează Masca pe Video</label>
-                        
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-sm font-medium text-slate-700">Poziție Verticală (Sus - Jos)</span>
-                            </div>
-                            <input type="range" id="box-y" min="0" max="90" value="70">
-                        </div>
-
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-sm font-medium text-slate-700">Grosime Text (Înălțime)</span>
-                            </div>
-                            <input type="range" id="box-h" min="5" max="50" value="20">
-                        </div>
-                        <p class="text-[0.65rem] text-slate-400"><i class="fa-solid fa-info-circle"></i> Trage de slidere pentru a acoperi exact subtitrarea din videoclipul din dreapta.</p>
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="p-5 border-t border-slate-200 bg-white sticky bottom-0 z-30 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-sm font-semibold text-slate-500">Cost Procesare:</span>
-                    <span class="font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100 flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> 2 Credite</span>
-                </div>
-                <button id="processBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg hover:-translate-y-0.5 transition-all">
-                    <i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL
-                </button>
-            </div>
-        </aside>
-
-        <section class="flex-1 relative bg-[#09090b] overflow-y-auto h-1/2 lg:h-full p-4 md:p-8 flex flex-col">
-            <div class="absolute inset-0 opacity-[0.05] pointer-events-none" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 24px 24px;"></div>
-
-            <div class="flex-1 flex items-center justify-center relative w-full h-full max-w-5xl mx-auto">
-                
-                <div id="output-empty" class="text-center w-full max-w-md bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl relative z-10">
-                    <div class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-3xl text-slate-400 mx-auto mb-5 border border-white/5">
-                        <i class="fa-solid fa-film"></i>
-                    </div>
-                    <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Previzualizare Video</h2>
-                    <p class="text-slate-400 font-medium text-sm">Încarcă un video din stânga pentru a vizualiza cadrul și a așeza masca.</p>
-                </div>
-
-                <div id="output-preview" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative z-10">
-                    <video id="preview-player" class="w-full h-full object-contain" controls></video>
-                    
-                    <div id="detection-box" class="absolute left-0 right-0 border-y-2 border-pink-500 bg-pink-500/30 hidden flex items-center justify-center pointer-events-none transition-all duration-75" style="top: 70%; height: 20%;">
-                        <span class="bg-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md backdrop-blur-md">Zonă de Curățare</span>
-                    </div>
-                </div>
-
-                <div id="output-loading" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-pink-500/50 relative z-10 flex flex-col items-center justify-center">
-                    <video id="processing-player" class="absolute inset-0 w-full h-full object-contain opacity-40 blur-sm" loop muted playsinline></video>
-                    <div class="scanner-line animate-scan"></div>
-                    <div class="relative z-10 text-center bg-black/60 p-6 rounded-2xl backdrop-blur-md border border-white/10">
-                        <div class="w-12 h-12 border-4 border-slate-600 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
-                        <h3 class="text-lg font-bold text-white mb-1" id="loading-text">AI-ul analizează cadrele...</h3>
-                        <p class="text-sm text-pink-400 font-medium">Mascare și reconstrucție pixeli.</p>
-                    </div>
-                </div>
-
-                <div id="output-result" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(236,72,153,0.15)] border border-white/10 relative z-10 group">
-                    <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-6">
-                        <button id="download-btn" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
-                            <i class="fa-solid fa-download text-pink-500"></i> Descarcă Video Curat
-                        </button>
-                    </div>
-                </div>
-                
-            </div>
-        </section>
-
+<div id="login-modal">
+    <div class="modal-content">
+        <button class="close-modal" onclick="closeLoginModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="w-20 h-20 rounded-[1.5rem] bg-pink-500/20 border border-pink-500/30 text-pink-400 flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner"><i class="fas fa-fingerprint"></i></div>
+        <h2 class="text-2xl font-black mb-2 text-white tracking-tight">Access Viralio</h2>
+        <p class="text-slate-400 text-sm mb-6">Securizat de Google. Autentifică-te pentru a procesa videoclipuri.</p>
+        <div class="flex justify-center bg-white/5 py-3 rounded-2xl border border-white/10">
+            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="filled_black" data-text="signin_with" data-size="large"></div>
+        </div>
     </div>
 </div>
 
+<div class="flex-1 flex flex-col lg:flex-row overflow-hidden pt-24 z-10">
+    
+    <aside class="w-full lg:w-[420px] glass-panel border-r border-white/10 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto">
+        <div class="p-6 flex-1 flex flex-col">
+            
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-eraser"></i></div>
+                <h1 class="text-2xl font-black text-white tracking-tight">Caption Eraser</h1>
+            </div>
+            <p class="text-slate-400 font-medium text-sm mb-6 leading-relaxed">Încarcă video-ul și folosește controalele de mai jos pentru a așeza masca exact peste text.</p>
+
+            <div id="dropZone" class="border border-dashed border-slate-600 rounded-2xl p-8 text-center cursor-pointer hover:border-pink-500 hover:bg-pink-500/5 transition-all group mb-8 bg-white/5">
+                <div class="w-14 h-14 bg-white/10 text-slate-300 rounded-full flex items-center justify-center text-xl mx-auto mb-4 group-hover:bg-pink-500/20 group-hover:text-pink-400 transition-colors"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <p class="text-base font-bold text-white mb-1">Încarcă fișierul Video</p>
+                <p class="text-xs text-slate-500 font-medium">MP4, MOV (Max 100MB)</p>
+                <input type="file" id="fileInput" class="hidden" accept="video/mp4,video/quicktime">
+            </div>
+
+            <div id="fileInfo" class="hidden bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-white/10 border border-white/5 rounded-lg flex items-center justify-center text-pink-400"><i class="fa-solid fa-file-video"></i></div>
+                <div class="flex-1 overflow-hidden">
+                    <p id="fileName" class="font-bold text-sm text-white truncate"></p>
+                    <p id="fileSize" class="text-[0.65rem] text-slate-400 font-medium uppercase tracking-wider"></p>
+                </div>
+                <button onclick="clearFile()" class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300 flex items-center justify-center transition-colors"><i class="fa-solid fa-trash text-sm"></i></button>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Metodă Acoperire</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="method" value="blur" class="hidden peer">
+                            <div class="border border-white/10 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-500/10 transition-all opacity-50 hover:opacity-100 peer-checked:opacity-100">
+                                <i class="fa-solid fa-droplet text-lg mb-1 text-slate-500 peer-checked:text-pink-400"></i>
+                                <p class="text-xs font-bold text-slate-300 peer-checked:text-white">Pixelare / Blur</p>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="method" value="inpaint" class="hidden peer" checked>
+                            <div class="border border-white/10 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-500/10 transition-all opacity-50 hover:opacity-100 peer-checked:opacity-100">
+                                <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1 text-slate-500 peer-checked:text-pink-400"></i>
+                                <p class="text-xs font-bold text-slate-300 peer-checked:text-white">Inpainting <span class="text-[0.6rem] bg-pink-500/20 text-pink-400 px-1 rounded border border-pink-500/30">PRO</span></p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="bg-white/5 border border-white/10 rounded-xl p-5 space-y-5">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">2. Ajustează Masca pe Video</label>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-medium text-slate-300">Poziție Verticală (Sus - Jos)</span>
+                            <span id="val-y" class="text-xs font-mono text-pink-400 bg-pink-500/10 px-1.5 rounded">70%</span>
+                        </div>
+                        <input type="range" id="box-y" min="0" max="90" value="70">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-medium text-slate-300">Grosime Text (Înălțime)</span>
+                            <span id="val-h" class="text-xs font-mono text-pink-400 bg-pink-500/10 px-1.5 rounded">20%</span>
+                        </div>
+                        <input type="range" id="box-h" min="5" max="50" value="20">
+                    </div>
+                    <p class="text-[0.65rem] text-slate-500 mt-2"><i class="fa-solid fa-info-circle text-pink-500/80"></i> Trage de slidere pentru a acoperi perfect subtitrarea din videoclipul din dreapta.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="p-5 border-t border-white/10 bg-[#0f172a]/80 backdrop-blur sticky bottom-0 z-30">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-sm font-semibold text-slate-400">Cost Procesare:</span>
+                <span class="font-black text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> 2 Credite</span>
+            </div>
+            <button id="processBtn" class="w-full bg-white text-black hover:bg-slate-200 py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:-translate-y-0.5 transition-all">
+                <i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL
+            </button>
+        </div>
+    </aside>
+
+    <section class="flex-1 relative overflow-y-auto h-1/2 lg:h-full p-4 md:p-8 flex flex-col items-center justify-center">
+        <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 32px 32px;"></div>
+
+        <div class="relative w-full h-full max-w-5xl mx-auto flex items-center justify-center z-10">
+            
+            <div id="output-empty" class="text-center w-full max-w-md bg-white/5 p-10 rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-sm">
+                <div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center text-4xl text-slate-500 mx-auto mb-6 border border-white/5">
+                    <i class="fa-solid fa-film"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold text-white mb-3 tracking-tight">Previzualizare Video</h2>
+                <p class="text-slate-400 font-medium text-sm leading-relaxed">Încarcă un video din panoul din stânga pentru a vizualiza cadrul și a așeza masca protectoare.</p>
+            </div>
+
+            <div id="output-preview" class="hidden w-full h-full max-w-3xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 relative">
+                <video id="preview-player" class="w-full h-full object-contain" controls></video>
+                
+                <div id="detection-box" class="absolute left-0 right-0 border-y-2 border-pink-500 bg-pink-500/20 hidden flex items-center justify-center pointer-events-none" style="top: 70%; height: 20%;">
+                    <span class="bg-pink-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-lg">Zonă Acoperită</span>
+                </div>
+            </div>
+
+            <div id="output-loading" class="hidden w-full max-w-3xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-pink-500/50 relative flex flex-col items-center justify-center">
+                <video id="processing-player" class="absolute inset-0 w-full h-full object-contain opacity-30 blur-sm" loop muted playsinline></video>
+                <div class="scanner-line animate-scan"></div>
+                <div class="relative z-10 text-center bg-black/60 p-8 rounded-2xl backdrop-blur-md border border-white/10">
+                    <div class="w-16 h-16 border-4 border-slate-700 border-t-pink-500 rounded-full animate-spin mx-auto mb-5"></div>
+                    <h3 class="text-xl font-bold text-white mb-2" id="loading-text">AI-ul analizează cadrele...</h3>
+                    <p class="text-sm text-pink-400 font-medium">Reconstruim fundalul pixel cu pixel.</p>
+                </div>
+            </div>
+
+            <div id="output-result" class="hidden w-full max-w-3xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-[0_0_80px_rgba(236,72,153,0.2)] border border-white/20 relative group">
+                <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-8">
+                    <button id="download-btn" class="bg-white text-black px-10 py-4 rounded-xl font-black text-lg shadow-[0_10px_20px_rgba(255,255,255,0.2)] hover:scale-105 transition-transform flex items-center gap-3">
+                        <i class="fa-solid fa-download text-pink-500 text-xl"></i> Descarcă Video Curat
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </section>
+
+</div>
+
 <script>
-    // === AUTH LOGIC FIX (Global Scope for Google) ===
+    // === AUTH LOGIC FIX (Global Scope for Google & Cross-Origin) ===
     const loginModal = document.getElementById('login-modal');
     function openLoginModal() { loginModal.classList.add('show'); }
     function closeLoginModal() { loginModal.classList.remove('show'); }
@@ -222,11 +226,10 @@
     function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
     function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
-    // EXPORTAM FUNCTIA GLOBAL PT GOOGLE
     window.handleCredentialResponse = async function(response) {
-        console.log("Se încearcă login-ul cu token-ul Google...");
+        console.log("Încercare Login prin API central...");
         try {
-            // Asigura-te ca domeniul "downloader.creatorsmart.ro" are setat CORS corespunzator
+            // Trimitem token-ul la API-ul central de autentificare
             const res = await fetch('https://downloader.creatorsmart.ro/api/auth/google', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -238,12 +241,10 @@
                 closeLoginModal(); 
                 updateUI(data.user); 
             } else {
-                console.error("Eroare la token:", data);
-                alert("Nu s-a putut genera sesiunea. Vezi consola.");
+                console.error("Eroare token:", data);
             }
         } catch (e) { 
-            console.error("Eroare Fetch Login:", e);
-            alert('Eroare conexiune. Backend-ul este pornit?'); 
+            console.error("Fetch Login Error:", e);
         }
     }
 
@@ -268,6 +269,7 @@
         const token = getToken();
         if(token) {
             try {
+                // Verificare sesiune activa pe serverul central
                 const res = await fetch('https://downloader.creatorsmart.ro/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) { const data = await res.json(); updateUI(data.user); }
                 else { removeToken(); }
@@ -282,31 +284,36 @@
     const detectionBox = document.getElementById('detection-box');
     let currentVideoFile = null;
 
-    // Conectare Sliders la Cutie
+    // Sliders Logic & Visual Update
     const sliderY = document.getElementById('box-y');
     const sliderH = document.getElementById('box-h');
+    const valY = document.getElementById('val-y');
+    const valH = document.getElementById('val-h');
     
     sliderY.addEventListener('input', (e) => {
         detectionBox.style.top = e.target.value + '%';
+        valY.innerText = e.target.value + '%';
     });
     
     sliderH.addEventListener('input', (e) => {
         detectionBox.style.height = e.target.value + '%';
+        valH.innerText = e.target.value + '%';
     });
 
-    // Conectare Radio Buttons (Blur vs Inpaint vizual)
+    // Radio Buttons (Blur vs Inpaint)
     document.querySelectorAll('input[name="method"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             if(e.target.value === 'blur') {
-                detectionBox.style.backdropFilter = 'blur(15px)';
-                detectionBox.style.backgroundColor = 'rgba(236,72,153,0.1)';
+                detectionBox.style.backdropFilter = 'blur(10px)';
+                detectionBox.style.backgroundColor = 'rgba(236,72,153,0.05)';
             } else {
-                detectionBox.style.backdropFilter = 'none';
+                detectionBox.style.backdropFilter = 'blur(8px)';
                 detectionBox.style.backgroundColor = 'rgba(236,72,153,0.3)';
             }
         });
     });
 
+    // Drag and Drop
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dropzone-active'); });
     dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dropzone-active'); });
@@ -340,10 +347,10 @@
         player.src = url;
         previewSection.classList.remove('hidden');
         
-        // Afisam masca ajustabila
+        // Afisam masca ajustabila dupa 1 secunda (efect wow)
         setTimeout(() => {
             detectionBox.classList.remove('hidden');
-        }, 1000);
+        }, 800);
     }
 
     function clearFile() {
@@ -360,7 +367,7 @@
         document.getElementById('output-empty').classList.remove('hidden');
     }
 
-    // === PROCESS LOGIC ===
+    // === PROCESS LOGIC (Apeleaza serverul propriu) ===
     document.getElementById('processBtn').addEventListener('click', async () => {
         const token = getToken();
         if(!token) { openLoginModal(); return; }
@@ -377,20 +384,18 @@
         processingPlayer.play();
         loaderSection.classList.remove('hidden');
 
-        let step = 0; const msgs = ["Analiză cadre...", "Extragere zonă marcată...", "Aplicare Filtru...", "Randare finală..."];
+        let step = 0; const msgs = ["Analiză cadre...", "Extragere zonă marcată...", "Aplicare Filtru AI...", "Randare finală 1080p..."];
         const textInterval = setInterval(() => { step++; if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; }, 1500);
 
         // FORM DATA
         const formData = new FormData();
         formData.append('video', currentVideoFile);
-        
-        // Trimitem Y si H catre server
         formData.append('boxY', sliderY.value);
         formData.append('boxH', sliderH.value);
         formData.append('method', document.querySelector('input[name="method"]:checked').value);
 
         try {
-            // Daca rulezi fisierul pe 'captions.creatorsmart.ro', apelezi ruta de backend
+            // Apeleaza serverul din spate de pe acelasi VPS (Coolify routing)
             const res = await fetch('/api/remove-caption', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -401,7 +406,7 @@
             clearInterval(textInterval); 
             loaderSection.classList.add('hidden');
             
-            if (!res.ok) throw new Error(data.error || "Eroare la procesare");
+            if (!res.ok) throw new Error(data.error || "Eroare la procesare server.");
 
             const resultSection = document.getElementById('output-result');
             const resultPlayer = document.getElementById('result-player');
@@ -420,7 +425,7 @@
             
             resultSection.classList.remove('hidden');
             btn.disabled = false; 
-            btn.innerHTML = '<i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL';
+            btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
 
         } catch (err) {
             clearInterval(textInterval);
@@ -428,7 +433,7 @@
             document.getElementById('output-empty').classList.remove('hidden');
             alert("Eroare: " + err.message);
             btn.disabled = false; 
-            btn.innerHTML = '<i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL';
+            btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-500"></i> CURĂȚĂ TEXTUL';
         }
     });
 </script>

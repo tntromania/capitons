@@ -1,147 +1,391 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const mongoose = require('mongoose');
-const { OAuth2Client } = require('google-auth-library');
-const jwt = require('jsonwebtoken');
-const multer = require('multer'); 
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Configurare Auth
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-// Foldere
-const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
-if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR);
-
-const upload = multer({ 
-    dest: DOWNLOAD_DIR,
-    limits: { fileSize: 100 * 1024 * 1024 } // Limita 100MB
-});
-
-app.use(cors({ origin: '*' }));
-app.use(express.json());
-// Servim HTML-ul din folderul "public"
-app.use(express.static(path.join(__dirname, 'public'))); 
-
-// ==========================================
-// DB
-// ==========================================
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Conectat la MongoDB!'))
-    .catch(err => console.error('❌ Eroare MongoDB:', err));
-
-const UserSchema = new mongoose.Schema({
-    googleId: String, email: String, name: String, picture: String,
-    credits: { type: Number, default: 3 }
-});
-const User = mongoose.model('User', UserSchema);
-
-const authenticate = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
-};
-
-// ==========================================
-// RUTE AUTH (Pentru a pastra creditele universale)
-// ==========================================
-app.post('/api/auth/google', async (req, res) => {
-    try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
+<!DOCTYPE html>
+<html lang="ro" class="scroll-smooth">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Caption Eraser | Viralio</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { viralio: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', accent: '#ec4899' } },
+                    animation: { 'scan': 'scan 2.5s linear infinite' },
+                    keyframes: { scan: { '0%': { transform: 'translateY(-100%)' }, '100%': { transform: 'translateY(1000%)' } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F8FAFC; overflow-x: hidden; }
+        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         
-        let user = await User.findOne({ googleId: payload.sub });
-        if (!user) {
-            user = new User({
-                googleId: payload.sub, email: payload.email,
-                name: payload.name, picture: payload.picture, credits: 3
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(9, 9, 11, 0.75); backdrop-filter: blur(12px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; }
+        #login-modal.show { display: flex; opacity: 1; }
+        .modal-content { background: #ffffff; border-radius: 2rem; padding: 48px; text-align: center; max-width: 400px; width: 90%; transform: translateY(30px) scale(0.95); transition: 0.5s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.4); }
+        #login-modal.show .modal-content { transform: translateY(0) scale(1); }
+        .close-modal { position: absolute; top: 20px; right: 24px; color: #94a3b8; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+        .close-modal:hover { color: #0f172a; transform: scale(1.1); }
+        
+        .dropzone-active { border-color: #ec4899 !important; background-color: #fdf2f8 !important; }
+        .scanner-line { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #ec4899; box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899; z-index: 20; opacity: 0.8; }
+    </style>
+</head>
+<body class="md:p-4 h-[100dvh] flex flex-col">
+
+<div class="bg-white md:rounded-[1.5rem] flex-1 shadow-xl overflow-hidden relative border border-slate-100 flex flex-col">
+    <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+
+    <div class="z-50 flex w-full justify-center px-2 py-4 md:px-6 md:pt-4 pb-2">
+        <nav class="w-full rounded-2xl border border-slate-200 bg-white/90 backdrop-blur-md shadow-sm px-5 md:px-6 py-2.5 flex justify-between items-center relative z-10">
+            <a class="flex items-center font-black text-xl tracking-tight text-slate-900 group" href="https://creatorsmart.ro">
+                <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
+                Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Caption Eraser</span>
+            </a>
+            
+            <div class="flex items-center justify-end space-x-3">
+                <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm hidden sm:block">Conectează-te</button>
+                <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden px-3 py-1.5 bg-slate-900 text-white rounded-lg font-semibold text-xs"><i class="fa-solid fa-user"></i></button>
+                
+                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1 pr-1.5 rounded-full">
+                    <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
+                    <div class="flex flex-col leading-none ml-2 mr-2 hidden md:flex">
+                        <span id="nav-name" class="text-[0.7rem] font-bold text-slate-900 mb-0.5"></span>
+                        <span class="text-[0.6rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
+                    </div>
+                    <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <div id="login-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeLoginModal()"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-viralio-600 flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
+            <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Access Viralio</h2>
+            <p class="text-slate-500 text-sm mb-6">Autentifică-te pentru a procesa videoclipuri.</p>
+            <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100">
+                <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+                <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden border-t border-slate-100 z-10">
+        
+        <aside class="w-full lg:w-[400px] bg-white border-r border-slate-200 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto shadow-[0_-10px_20px_rgba(0,0,0,0.05)] lg:shadow-none">
+            <div class="p-6 flex-1 flex flex-col">
+                
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-eraser"></i></div>
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Caption Eraser</h1>
+                </div>
+                <p class="text-slate-500 font-medium text-sm mb-8 leading-relaxed">Curăță videoclipurile de subtitrările text lipite peste imagine. AI-ul reconstruiește fundalul perfect.</p>
+
+                <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center cursor-pointer hover:border-pink-500 hover:bg-pink-50 transition-all group mb-8">
+                    <div class="w-14 h-14 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center text-xl mx-auto mb-4 group-hover:bg-pink-100 group-hover:text-pink-600 transition-colors shadow-sm"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                    <p class="text-base font-bold text-slate-700 mb-1">Încarcă fișierul Video</p>
+                    <p class="text-xs text-slate-500 font-medium">MP4, MOV (Max 100MB)</p>
+                    <input type="file" id="fileInput" class="hidden" accept="video/mp4,video/quicktime">
+                </div>
+
+                <div id="fileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-pink-500 shadow-sm"><i class="fa-solid fa-file-video"></i></div>
+                    <div class="flex-1 overflow-hidden">
+                        <p id="fileName" class="font-bold text-sm text-slate-900 truncate"></p>
+                        <p id="fileSize" class="text-[0.65rem] text-slate-500 font-medium uppercase tracking-wider"></p>
+                    </div>
+                    <button onclick="clearFile()" class="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors"><i class="fa-solid fa-trash text-sm"></i></button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Metodă AI</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="method" value="blur" class="hidden peer">
+                                <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all opacity-70 hover:opacity-100">
+                                    <i class="fa-solid fa-droplet text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
+                                    <p class="text-xs font-bold text-slate-700">Pixelare</p>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="method" value="inpaint" class="hidden peer" checked>
+                                <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
+                                    <p class="text-xs font-bold text-slate-700">Inpainting <span class="text-[0.6rem] bg-pink-100 text-pink-600 px-1 rounded">PRO</span></p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Zona de acțiune</label>
+                        <select class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-700 outline-none focus:border-pink-500">
+                            <option value="bottom">Subtitrări Jos (TikTok / Reels)</option>
+                            <option value="center">Subtitrări Centru (Meme format)</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="p-5 border-t border-slate-200 bg-white sticky bottom-0 z-30 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm font-semibold text-slate-500">Cost Procesare:</span>
+                    <span class="font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100 flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> 2 Credite</span>
+                </div>
+                <button id="processBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg hover:-translate-y-0.5 transition-all">
+                    <i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL
+                </button>
+            </div>
+        </aside>
+
+        <section class="flex-1 relative bg-[#09090b] overflow-y-auto h-1/2 lg:h-full p-4 md:p-8 flex flex-col">
+            <div class="absolute inset-0 opacity-[0.05] pointer-events-none" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 24px 24px;"></div>
+
+            <div class="flex-1 flex items-center justify-center relative w-full h-full max-w-5xl mx-auto">
+                
+                <div id="output-empty" class="text-center w-full max-w-md bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl relative z-10">
+                    <div class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-3xl text-slate-400 mx-auto mb-5 border border-white/5">
+                        <i class="fa-solid fa-film"></i>
+                    </div>
+                    <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Previzualizare Video</h2>
+                    <p class="text-slate-400 font-medium text-sm">Încarcă un video din stânga pentru a vizualiza cadrul și a aplica setările.</p>
+                </div>
+
+                <div id="output-preview" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 relative z-10 group">
+                    <video id="preview-player" class="w-full h-full object-contain" controls></video>
+                    <div id="detection-box" class="absolute bottom-[10%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg hidden flex items-center justify-center pointer-events-none transition-all duration-300">
+                        <span class="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">Zonă Detectată</span>
+                    </div>
+                </div>
+
+                <div id="output-loading" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-pink-500/50 relative z-10 flex flex-col items-center justify-center">
+                    <video id="processing-player" class="absolute inset-0 w-full h-full object-contain opacity-40 blur-sm" loop muted playsinline></video>
+                    <div class="scanner-line animate-scan"></div>
+                    <div class="relative z-10 text-center bg-black/60 p-6 rounded-2xl backdrop-blur-md border border-white/10">
+                        <div class="w-12 h-12 border-4 border-slate-600 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
+                        <h3 class="text-lg font-bold text-white mb-1" id="loading-text">AI-ul analizează cadrele...</h3>
+                        <p class="text-sm text-pink-400 font-medium">Mascare și reconstrucție pixeli.</p>
+                    </div>
+                </div>
+
+                <div id="output-result" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(236,72,153,0.15)] border border-white/10 relative z-10 group">
+                    <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-6">
+                        <button id="download-btn" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
+                            <i class="fa-solid fa-download text-pink-500"></i> Descarcă Video Curat
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<script>
+    // === AUTH LOGIC UNIVERSAL ===
+    const loginModal = document.getElementById('login-modal');
+    function openLoginModal() { loginModal.classList.add('show'); }
+    function closeLoginModal() { loginModal.classList.remove('show'); }
+    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
+    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
+    function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+
+    async function handleCredentialResponse(response) {
+        try {
+            // Trimitem catre hub pentru validare / centralizare
+            const res = await fetch('https://downloader.creatorsmart.ro/api/auth/google', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ credential: response.credential }) 
             });
-            await user.save();
-        }
-
-        const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token: sessionToken, user: { name: user.name, picture: user.picture, credits: user.credits } });
-    } catch (error) { res.status(400).json({ error: "Eroare Google" }); }
-});
-
-app.get('/api/auth/me', authenticate, async (req, res) => {
-    const user = await User.findById(req.userId);
-    res.json({ user: { name: user.name, picture: user.picture, credits: user.credits } });
-});
-
-// ==========================================
-// ENDPOINT CAPTION REMOVER (FFMPEG)
-// ==========================================
-app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
-    try {
-        const user = await User.findById(req.userId);
-        if (user.credits < 2) {
-            if (req.file) fs.unlinkSync(req.file.path);
-            return res.status(403).json({ error: "Cost: 2 Credite. Fonduri insuficiente." });
-        }
-        if (!req.file) return res.status(400).json({ error: "Video lipsă." });
-
-        const inputPath = req.file.path;
-        const videoId = Date.now();
-        const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
-        const { position } = req.body; 
-
-        // Setam filtrul de blur pe zona selectata
-        let filterComplex = `[0:v]crop=iw:ih*0.20:0:ih*0.80,boxblur=20:20[b];[0:v][b]overlay=0:H*0.80`; // Default jos
-        if (position === "center") filterComplex = `[0:v]crop=iw:ih*0.25:0:ih*0.35,boxblur=20:20[b];[0:v][b]overlay=0:H*0.35`;
-
-        const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
-
-        exec(ffmpegCommand, async (error, stdout, stderr) => {
-            if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
-            if (error) return res.status(500).json({ error: "Eroare FFmpeg." });
-
-            user.credits -= 2; 
-            await user.save();
-
-            res.json({
-                status: 'ok',
-                downloadUrl: `/download/clean_${videoId}.mp4`,
-                creditsLeft: user.credits
-            });
-        });
-
-    } catch (e) {
-        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        res.status(500).json({ error: e.message });
+            const data = await res.json();
+            if(data.token) { setToken(data.token); closeLoginModal(); updateUI(data.user); }
+        } catch (e) { alert('Eroare conexiune login.'); }
     }
-});
 
-// ==========================================
-// RUTA DE DOWNLOAD & CRON
-// ==========================================
-app.get('/download/:filename', (req, res) => {
-    const file = path.join(DOWNLOAD_DIR, req.params.filename);
-    if (fs.existsSync(file)) res.download(file);
-    else res.status(404).send('Fișier expirat.');
-});
+    function updateUI(user) {
+        document.getElementById('login-top-btn').classList.add('hidden');
+        document.getElementById('login-top-btn-mobile').classList.add('hidden');
+        const userNav = document.getElementById('user-profile');
+        userNav.classList.remove('hidden'); userNav.classList.add('flex');
+        document.getElementById('nav-name').innerText = user.name.split(' ')[0];
+        document.getElementById('nav-avatar').src = user.picture;
+        document.getElementById('nav-credits').innerText = user.credits;
+    }
 
-setInterval(() => {
-    const files = fs.readdirSync(DOWNLOAD_DIR);
-    const now = Date.now();
-    files.forEach(file => {
-        const filePath = path.join(DOWNLOAD_DIR, file);
-        const stats = fs.statSync(filePath);
-        if (now - stats.mtimeMs > 24 * 60 * 60 * 1000) fs.unlinkSync(filePath);
+    function logout() { removeToken(); location.reload(); }
+
+    window.onload = async () => {
+        const token = getToken();
+        if(token) {
+            try {
+                const res = await fetch('https://downloader.creatorsmart.ro/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) { const data = await res.json(); updateUI(data.user); }
+                else { removeToken(); }
+            } catch (e) {}
+        }
+    };
+
+    // === UI PREVIEW & DETECTIE ===
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const detectionBox = document.getElementById('detection-box');
+    let currentVideoFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dropzone-active'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dropzone-active'); });
+    dropZone.addEventListener('drop', (e) => { 
+        e.preventDefault(); dropZone.classList.remove('dropzone-active'); 
+        if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); 
     });
-}, 3600000); 
+    fileInput.addEventListener('change', (e) => {
+        if(e.target.files.length) handleFile(e.target.files[0]);
+    });
 
-app.listen(PORT, () => console.log(`🚀 Caption Remover ruleaza pe portul ${PORT}!`));
+    // Update the visual box when select changes
+    document.querySelector('select').addEventListener('change', (e) => {
+        if (e.target.value.includes('Centru')) {
+            detectionBox.className = "absolute top-[40%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg flex items-center justify-center pointer-events-none transition-all duration-300";
+        } else {
+            detectionBox.className = "absolute bottom-[10%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg flex items-center justify-center pointer-events-none transition-all duration-300";
+        }
+    });
+
+    function handleFile(file) {
+        if(!file.type.startsWith('video/')) { alert('Te rog încarcă un fișier video valid!'); return; }
+        
+        currentVideoFile = file;
+        const url = URL.createObjectURL(file);
+        
+        document.getElementById('fileName').innerText = file.name;
+        document.getElementById('fileSize').innerText = (file.size / (1024*1024)).toFixed(1) + ' MB';
+        dropZone.classList.add('hidden');
+        fileInfo.classList.remove('hidden');
+        fileInfo.classList.add('flex');
+
+        document.getElementById('output-empty').classList.add('hidden');
+        document.getElementById('output-result').classList.add('hidden');
+        document.getElementById('output-loading').classList.add('hidden');
+        
+        const previewSection = document.getElementById('output-preview');
+        const player = document.getElementById('preview-player');
+        
+        player.src = url;
+        previewSection.classList.remove('hidden');
+        
+        setTimeout(() => { detectionBox.classList.remove('hidden'); }, 1000);
+    }
+
+    function clearFile() {
+        currentVideoFile = null;
+        fileInput.value = '';
+        fileInfo.classList.add('hidden');
+        fileInfo.classList.remove('flex');
+        dropZone.classList.remove('hidden');
+        
+        document.getElementById('output-preview').classList.add('hidden');
+        detectionBox.classList.add('hidden');
+        document.getElementById('output-result').classList.add('hidden');
+        document.getElementById('output-loading').classList.add('hidden');
+        document.getElementById('output-empty').classList.remove('hidden');
+    }
+
+    // === PROCESS (FETCH SERVER.JS API) ===
+    document.getElementById('processBtn').addEventListener('click', async () => {
+        const token = getToken();
+        if(!token) { openLoginModal(); return; }
+        if(!currentVideoFile) { alert("Încarcă un video mai întâi!"); return; }
+
+        const btn = document.getElementById('processBtn');
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SE PROCESEAZĂ...';
+
+        document.getElementById('output-preview').classList.add('hidden');
+        
+        const loaderSection = document.getElementById('output-loading');
+        const processingPlayer = document.getElementById('processing-player');
+        processingPlayer.src = URL.createObjectURL(currentVideoFile);
+        processingPlayer.play();
+        loaderSection.classList.remove('hidden');
+
+        let step = 0; 
+        const msgs = ["Analiză OCR...", "Extragere text...", "Aplicare Inpainting...", "Randare finală..."];
+        const textInterval = setInterval(() => { 
+            step++; 
+            if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; 
+        }, 1500);
+
+        // FORM DATA
+        const formData = new FormData();
+        formData.append('video', currentVideoFile);
+        
+        // Preluam setarile de la selectul de zona si radio button (blur/inpaint)
+        const positionSelect = document.querySelector('select').value;
+        let positionArg = "bottom";
+        if (positionSelect.includes("Centru")) positionArg = "center";
+        
+        formData.append('position', positionArg);
+        formData.append('method', document.querySelector('input[name="method"]:checked').value);
+
+        try {
+            // Trimitem catre serverul curent
+            const res = await fetch('/api/remove-caption', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            
+            const data = await res.json();
+            
+            clearInterval(textInterval); 
+            loaderSection.classList.add('hidden');
+            
+            if (!res.ok) throw new Error(data.error || "Eroare la procesare server.");
+
+            // Afisam rezultatul
+            const resultSection = document.getElementById('output-result');
+            const resultPlayer = document.getElementById('result-player');
+            resultPlayer.src = data.downloadUrl; 
+            
+            // Setam butonul de Download real
+            document.getElementById('download-btn').onclick = () => {
+                const a = document.createElement('a');
+                a.href = data.downloadUrl;
+                a.download = 'viralio_nocaption.mp4';
+                a.click();
+            };
+
+            // Update live credite
+            document.getElementById('nav-credits').innerText = data.creditsLeft;
+            
+            resultSection.classList.remove('hidden');
+            btn.disabled = false; 
+            btn.innerHTML = '<i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL';
+
+        } catch (err) {
+            clearInterval(textInterval);
+            loaderSection.classList.add('hidden');
+            document.getElementById('output-empty').classList.remove('hidden');
+            alert("Eroare: " + err.message);
+            btn.disabled = false; 
+            btn.innerHTML = '<i class="fa-solid fa-eraser"></i> CURĂȚĂ TEXTUL';
+        }
+    });
+</script>
+
+</body>
+</html>

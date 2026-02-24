@@ -69,7 +69,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT CAPTION REMOVER
+// ENDPOINT CAPTION REMOVER (FFMPEG INPAINTING)
 // ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
@@ -84,35 +84,63 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
         
-        // Preluam procentajele de la slidere si metoda
-        const boxY = parseInt(req.body.boxY) || 70; 
-        const boxH = parseInt(req.body.boxH) || 20; 
+        // Preluam procentajele de la slidere
+        const boxY = parseInt(req.body.boxY) || 70; // ex: 70% din inaltime 
+        const boxH = parseInt(req.body.boxH) || 20; // ex: grosime de 20%
         const method = req.body.method || 'blur';
 
-        let filterComplex = "";
-        if (method === 'inpaint') {
-            // FIX: Folosim 'ih' (input height) si 'iw' (input width) pentru delogo
-            filterComplex = `[0:v]delogo=x=1:y=ih*${boxY}/100:w=iw-2:h=ih*${boxH}/100[outv]`;
-        } else {
-            // Pixelare / Blur clasic (aici ih e ok)
-            filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100[outv]`;
-        }
-
-        const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -map "[outv]" -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
-
-        exec(ffmpegCommand, async (error, stdout, stderr) => {
-            if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
-            
-            if (error) {
-                console.error("FFMPEG ERROR:", stderr);
-                return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-2).join(' ') });
+        // FFmpeg Probe: Aflam mai intai dimensiunile exacte ale video-ului!
+        exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${inputPath}"`, (probeErr, probeOut) => {
+            if (probeErr) {
+                 if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+                 return res.status(500).json({ error: "Eroare la analiza video-ului." });
             }
 
-            user.credits -= 2; 
-            await user.save();
+            const [width, height] = probeOut.trim().split('x').map(Number);
+            
+            // Calculam in pixeli exacti unde va fi masca (evitam erorile matematice interne ale FFmpeg)
+            let pixelY = Math.floor(height * (boxY / 100));
+            let pixelH = Math.floor(height * (boxH / 100));
+            
+            // Delogo are nevoie ca marginile sa nu atinga exact buza video-ului (x=0 nu e recomandat)
+            let pixelX = 2; // Lasam 2 pixeli marja
+            let pixelW = width - 4; 
 
-            res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });
+            // Preventie: daca masca iese din video
+            if (pixelY + pixelH >= height) {
+                pixelH = height - pixelY - 2; 
+            }
+
+            let filterComplex = "";
+            if (method === 'inpaint') {
+                // INPAINTING (Delogo): Reconstruieste pixelii pe baza marginilor. E cel mai apropiat efect de Photoshop Content-Aware Fill.
+                filterComplex = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}`;
+            } else {
+                // BLUR Clasic (doar daca userul vrea asta express)
+                filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100`;
+            }
+
+            // Comanda FFmpeg: Daca metoda e inpaint, aplicam filtrul ca -vf, altfel cu -filter_complex
+            const filterFlag = method === 'inpaint' ? `-vf "${filterComplex}"` : `-filter_complex "${filterComplex}"`;
+            
+            // -map 0:v -map 0:a? asigura ca tragem si sunetul, DACA exista, fara sa dam crash
+            const ffmpegCommand = `ffmpeg -y -i "${inputPath}" ${filterFlag} -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
+
+            exec(ffmpegCommand, async (error, stdout, stderr) => {
+                if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
+                
+                if (error) {
+                    console.error("FFMPEG ERROR:", stderr);
+                    return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-2).join(' ') });
+                }
+
+                user.credits -= 2; 
+                await user.save();
+
+                res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });
+            });
         });
+
     } catch (e) {
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         res.status(500).json({ error: e.message });

@@ -70,6 +70,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 
 // ==========================================
 // ENDPOINT CAPTION REMOVER
+// ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -90,14 +91,13 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
 
         let filterComplex = "";
         if (method === 'inpaint') {
-            // Folosim delogo pentru efectul de inpainting (reconstruiește pixelii de sub text)
-            filterComplex = `[0:v]delogo=x=1:y=H*${boxY}/100:w=W-2:h=H*${boxH}/100[outv]`;
+            // FIX: Folosim 'ih' (input height) si 'iw' (input width) pentru delogo
+            filterComplex = `[0:v]delogo=x=1:y=ih*${boxY}/100:w=iw-2:h=ih*${boxH}/100[outv]`;
         } else {
-            // Pixelare / Blur clasic
+            // Pixelare / Blur clasic (aici ih e ok)
             filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100[outv]`;
         }
 
-        // FIX FFMPEG CRASH: -map "[outv]" si -map 0:a? previn erorile daca video-ul nu are deloc sunet!
         const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -map "[outv]" -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
         exec(ffmpegCommand, async (error, stdout, stderr) => {
@@ -105,7 +105,6 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
             
             if (error) {
                 console.error("FFMPEG ERROR:", stderr);
-                // Returnam in UI exact motivul din Linux ca sa stim ce are pe viitor
                 return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-2).join(' ') });
             }
 

@@ -69,7 +69,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT CAPTION REMOVER (FFMPEG STABILIZAT)
+// ENDPOINT CAPTION REMOVER (FFMPEG ULTRA - FIXED)
 // ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
@@ -89,52 +89,58 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const boxH = parseInt(req.body.boxH) || 20; 
         const method = req.body.method || 'blur';
 
-        // 1. Aflam dimensiunile reale ale video-ului
+        // 1. Aflam dimensiunile reale ale video-ului pentru a calcula Pixelii exacti (rezolva eroarea 'ih*70/100')
         exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${inputPath}"`, (probeErr, probeOut) => {
             if (probeErr) {
                  if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                 console.error("Probe Error:", probeErr);
-                 return res.status(500).json({ error: "Eroare la analiza video-ului." });
+                 return res.status(500).json({ error: "Eroare la analiza metadatelor video-ului." });
             }
 
+            // ffprobe returneaza ceva gen "1080x1920\n"
             const [width, height] = probeOut.trim().split('x').map(Number);
             
-            // 2. Calculam coordonatele exacte in PIXELI (vital pentru a nu da crash)
-            let pixelY = Math.floor(height * (boxY / 100));
-            let pixelH = Math.floor(height * (boxH / 100));
-            // Adaugam o marja de siguranta de 2px pentru delogo
-            let pixelX = 2; 
-            let pixelW = width - 4; 
+            // 2. Calculam in PIXELI EXACȚI. Asta este "glonț-proof" pt FFmpeg.
+            let pixelY = Math.floor((boxY / 100) * height);
+            let pixelH = Math.floor((boxH / 100) * height);
+            
+            // Setam zona de X (stanga-dreapta) la maxim posibil, dar lasand o marja de 4 pixeli 
+            // delogo are nevoie de pixeli pe margine din care sa "imprumute" culorile.
+            let pixelX = 4; 
+            let pixelW = width - 8; 
 
-            // Siguranta: sa nu iasa din cadru
-            if (pixelY + pixelH >= height) pixelH = height - pixelY - 2;
-            if (pixelY < 0) pixelY = 0;
+            // Siguranta anti-crash: masca nu are voie sa iasa in afara video-ului.
+            if (pixelY + pixelH >= height) {
+                pixelH = height - pixelY - 4; // lasam 4px la baza jos
+            }
+            if (pixelY < 4) pixelY = 4;
 
-            let filterComplex = "";
-            let filterType = "-filter_complex"; // Implicit
+            let filterString = "";
+            let filterFlag = "";
 
             if (method === 'inpaint') {
-                // INPAINTING (Delogo) - Interpolare avansata
-                // Folosim -vf pentru un singur filtru video, e mai stabil
-                filterType = "-vf";
-                filterComplex = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}:band=10`; // band=10 ajuta putin la blending
+                // ULTRA INPAINTING (Delogo)
+                // band=20 este raza de pixeli de pe care ia mostre. Cu cat e mai mare, cu atat topeste textul mai bine in fundal.
+                filterFlag = "-vf";
+                filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}:band=20`;
             } else {
-                // BLUR SIMPLE (Crop & Overlay)
-                filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=40:40[b];[0:v][b]overlay=0:H*${boxY}/100`;
+                // ULTRA BLUR
+                // boxblur=60:60 -> o zona de blur enorma, mascheaza orice urma de text ascutit.
+                filterFlag = "-filter_complex";
+                filterString = `[0:v]crop=${pixelW}:${pixelH}:${pixelX}:${pixelY},boxblur=60:60[b];[0:v][b]overlay=${pixelX}:${pixelY}`;
             }
             
-            // 3. Comanda finala: Folosim -map 0:a? ca sa copiem sunetul DOAR daca exista (evita crash)
-            const ffmpegCommand = `ffmpeg -y -i "${inputPath}" ${filterType} "${filterComplex}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 24 -c:a copy "${outputPath}"`;
-
-            console.log("Executing:", ffmpegCommand); // Bun pentru debugging
+            // 3. Comanda finala: 
+            // -map 0:v (Ia video-ul)
+            // -map 0:a? (Copiaza sunetul DOAR daca exista. Asta opreste erorile pt video-uri mute).
+            const ffmpegCommand = `ffmpeg -y -i "${inputPath}" ${filterFlag} "${filterString}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
             exec(ffmpegCommand, async (error, stdout, stderr) => {
                 if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
                 
                 if (error) {
                     console.error("FFMPEG ERROR:", stderr);
-                    // Trimitem doar ultimele 2 linii din eroare ca sa nu umplem ecranul
-                    return res.status(500).json({ error: "Eroare procesare: " + stderr.split('\n').slice(-3).join(' ') });
+                    // Daca totesi mai pica, returnam ultimele linii de pe Linux in Pop-Up sa stim clar!
+                    return res.status(500).json({ error: "Eroare la randare video: " + stderr.split('\n').slice(-3).join(' ') });
                 }
 
                 user.credits -= 2; 
@@ -143,12 +149,6 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
                 res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });
             });
         });
-
-    } catch (e) {
-        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        res.status(500).json({ error: e.message });
-    }
-});
 
     } catch (e) {
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);

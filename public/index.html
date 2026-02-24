@@ -202,20 +202,19 @@
 </div>
 
 <script>
-    // === AUTH LOGIC INDEPENDENT (FARA CORS ERRORS) ===
+// === AUTH LOGIC ===
     const loginModal = document.getElementById('login-modal');
     function openLoginModal() { loginModal.classList.add('show'); }
     function closeLoginModal() { loginModal.classList.remove('show'); }
-    
-    // Setam cookie-ul local, simplu
-    function setToken(token) { document.cookie = "viralio_caption_token=" + token + "; path=/; max-age=604800; Secure; SameSite=Lax"; }
-    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_caption_token=([^;]*)/); return match ? match[1] : null; }
-    function removeToken() { document.cookie = "viralio_caption_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
+    // Salveaza cookie pentru TOT domeniul creatorsmart.ro
+    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
+    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
+    function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+
+    // Face fetch pe PROPRIUL server Node.js
     window.handleCredentialResponse = async function(response) {
-        console.log("Încercare Login...");
         try {
-            // Trimitem catre serverul PROPRIU, care e conectat la aceeasi baza de date MongoDB!
             const res = await fetch('/api/auth/google', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -227,23 +226,20 @@
                 closeLoginModal(); 
                 updateUI(data.user); 
             } else {
-                console.error("Eroare token:", data);
+                alert("Eroare token Google");
             }
         } catch (e) { 
-            console.error("Fetch Login Error:", e);
+            console.error(e);
+            alert('Eroare conexiune server.'); 
         }
     }
 
     function updateUI(user) {
-        const btnDesktop = document.getElementById('login-top-btn');
-        const btnMobile = document.getElementById('login-top-btn-mobile');
-        if(btnDesktop) btnDesktop.classList.add('hidden');
-        if(btnMobile) btnMobile.classList.add('hidden');
-
+        document.getElementById('login-top-btn').classList.add('hidden');
+        document.getElementById('login-top-btn-mobile').classList.add('hidden');
         const userNav = document.getElementById('user-profile');
         userNav.classList.remove('hidden'); 
         userNav.classList.add('flex');
-        
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
         document.getElementById('nav-credits').innerText = user.credits;
@@ -255,13 +251,16 @@
         const token = getToken();
         if(token) {
             try {
-                // Cerem datele contului de la serverul propriu
+                // Cere informatii de la propriul server
                 const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) { const data = await res.json(); updateUI(data.user); }
                 else { removeToken(); }
-            } catch (e) { console.log("Eroare sesiune centrala."); }
+            } catch (e) { console.error(e); }
         }
     };
+    
+    // FETCH-ul catre serverul propriu la apasarea butonului de Procesare ramane la fel:
+    // const res = await fetch('/api/remove-caption', ...
 
     // === UI PREVIEW & DYNAMIC MASK ===
     const dropZone = document.getElementById('dropZone');

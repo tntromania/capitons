@@ -202,65 +202,64 @@
 </div>
 
 <script>
-// === AUTH LOGIC ===
-    const loginModal = document.getElementById('login-modal');
-    function openLoginModal() { loginModal.classList.add('show'); }
-    function closeLoginModal() { loginModal.classList.remove('show'); }
+// === AUTH UNIVERSAL ===
+const loginModal = document.getElementById('login-modal');
+function openLoginModal() { loginModal.classList.add('show'); }
+function closeLoginModal() { loginModal.classList.remove('show'); }
 
-    // Salveaza cookie pentru TOT domeniul creatorsmart.ro
-    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
-    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
-    function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+// Ia cookie-ul care a fost salvat initial pe .creatorsmart.ro
+function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.creatorsmart.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
+function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
+function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
-    // Face fetch pe PROPRIUL server Node.js
-    window.handleCredentialResponse = async function(response) {
-        try {
-            const res = await fetch('/api/auth/google', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ credential: response.credential }) 
-            });
-            const data = await res.json();
-            if(data.token) { 
-                setToken(data.token); 
-                closeLoginModal(); 
-                updateUI(data.user); 
-            } else {
-                alert("Eroare token Google");
-            }
-        } catch (e) { 
-            console.error(e);
-            alert('Eroare conexiune server.'); 
-        }
-    }
+// Aici e smecheria: DACA se logheaza pe Captions, trimitem catre serverul de Captions.
+// Pentru ca si Captions si Downloader folosesc acelasi BD, nu e nicio diferenta. Va merge 100%.
+window.handleCredentialResponse = async function(response) {
+    try {
+        const res = await fetch('/api/auth/google', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ credential: response.credential }) 
+        });
+        const data = await res.json();
+        if(data.token) { 
+            setToken(data.token); 
+            closeLoginModal(); 
+            updateUI(data.user); 
+        } else { alert("Eroare la generare token"); }
+    } catch (e) { alert('Eroare conexiune cu serverul de Captions.'); }
+}
 
-    function updateUI(user) {
-        document.getElementById('login-top-btn').classList.add('hidden');
-        document.getElementById('login-top-btn-mobile').classList.add('hidden');
-        const userNav = document.getElementById('user-profile');
+function updateUI(user) {
+    const btnDesktop = document.getElementById('login-top-btn');
+    const btnMobile = document.getElementById('login-top-btn-mobile');
+    if(btnDesktop) btnDesktop.classList.add('hidden');
+    if(btnMobile) btnMobile.classList.add('hidden');
+
+    const userNav = document.getElementById('user-profile');
+    if(userNav){
         userNav.classList.remove('hidden'); 
         userNav.classList.add('flex');
-        document.getElementById('nav-name').innerText = user.name.split(' ')[0];
-        document.getElementById('nav-avatar').src = user.picture;
-        document.getElementById('nav-credits').innerText = user.credits;
     }
-
-    function logout() { removeToken(); location.reload(); }
-
-    window.onload = async () => {
-        const token = getToken();
-        if(token) {
-            try {
-                // Cere informatii de la propriul server
-                const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) { const data = await res.json(); updateUI(data.user); }
-                else { removeToken(); }
-            } catch (e) { console.error(e); }
-        }
-    };
     
-    // FETCH-ul catre serverul propriu la apasarea butonului de Procesare ramane la fel:
-    // const res = await fetch('/api/remove-caption', ...
+    document.getElementById('nav-name').innerText = user.name.split(' ')[0];
+    document.getElementById('nav-avatar').src = user.picture;
+    document.getElementById('nav-credits').innerText = user.credits;
+}
+
+function logout() { removeToken(); location.reload(); }
+
+window.onload = async () => {
+    const token = getToken();
+    if(token) {
+        try {
+            // Fiindca ambele folosesc acelasi JWT_SECRET, serverul Captions va recunoaste tokenul generat de Downloader!
+            const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+            if(res.ok) { const data = await res.json(); updateUI(data.user); }
+            else { removeToken(); }
+        } catch (e) {}
+    }
+};
 
     // === UI PREVIEW & DYNAMIC MASK ===
     const dropZone = document.getElementById('dropZone');

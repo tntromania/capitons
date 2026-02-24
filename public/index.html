@@ -227,9 +227,14 @@ function updateUI(user) {
     const btnDesktop = document.getElementById('login-top-btn');
     const btnMobile = document.getElementById('login-top-btn-mobile');
     
-    // FIX BUG VIZUAL: Folosim style.display pentru a bloca forțat afișarea
-    if(btnDesktop) btnDesktop.style.display = 'none';
-    if(btnMobile) btnMobile.style.display = 'none';
+    // FIX pentru butonul care ramanea agatat in colt (Scoatem clasa sm:block definitiv)
+    if(btnDesktop) {
+        btnDesktop.classList.remove('sm:block');
+        btnDesktop.classList.add('hidden');
+    }
+    if(btnMobile) {
+        btnMobile.classList.add('hidden');
+    }
 
     const userNav = document.getElementById('user-profile');
     if(userNav){

@@ -110,25 +110,15 @@
             </div>
 
             <div class="space-y-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Metodă Acoperire</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="cursor-pointer">
-                            <input type="radio" name="method" value="blur" class="hidden peer">
-                            <div class="border border-white/10 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-500/10 transition-all opacity-50 hover:opacity-100 peer-checked:opacity-100">
-                                <i class="fa-solid fa-droplet text-lg mb-1 text-slate-500 peer-checked:text-pink-400"></i>
-                                <p class="text-xs font-bold text-slate-300 peer-checked:text-white">Pixelare / Blur</p>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="method" value="inpaint" class="hidden peer" checked>
-                            <div class="border border-white/10 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-500/10 transition-all opacity-50 hover:opacity-100 peer-checked:opacity-100">
-                                <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1 text-slate-500 peer-checked:text-pink-400"></i>
-                                <p class="text-xs font-bold text-slate-300 peer-checked:text-white">Inpainting <span class="text-[0.6rem] bg-pink-500/20 text-pink-400 px-1 rounded border border-pink-500/30">PRO</span></p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
+    <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Metodă Acoperire</label>
+        <div class="border border-pink-500 bg-pink-500/10 rounded-xl p-4 text-center flex flex-col items-center justify-center cursor-default">
+            <i class="fa-solid fa-wand-magic-sparkles text-2xl mb-2 text-pink-400"></i>
+            <p class="text-sm font-bold text-white">AI ProPainter <span class="text-[0.6rem] bg-pink-500/30 text-pink-300 px-1.5 py-0.5 rounded ml-1 border border-pink-500/50">PRO</span></p>
+            <p class="text-xs text-slate-400 mt-1">Reconstrucție video cu arhitectură neuronală</p>
+            <input type="radio" name="method" value="inpaint" class="hidden" checked>
+        </div>
+    </div>
                 
                 <div class="bg-white/5 border border-white/10 rounded-xl p-5 space-y-5">
                     <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">2. Ajustează Masca pe Video</label>
@@ -194,9 +184,9 @@
         <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
     </div>
     
-    <div class="p-6 bg-white/5 border-t border-white/10 flex justify-center">
-        <button id="download-btn" class="bg-white text-black px-10 py-4 rounded-xl font-black text-lg shadow-[0_10px_20px_rgba(255,255,255,0.2)] hover:scale-105 transition-transform flex items-center gap-3 hover:bg-pink-50 group">
-            <i class="fa-solid fa-download text-pink-500 text-xl group-hover:animate-bounce"></i> Descarcă Video Curat
+    <div class="p-6 bg-[#18181b] border-t border-white/10 flex justify-center">
+        <button id="download-btn" class="bg-white text-black px-10 py-4 rounded-xl font-black text-lg shadow-[0_10px_20px_rgba(255,255,255,0.2)] hover:scale-105 transition-transform flex items-center gap-3">
+            <i class="fa-solid fa-download text-pink-500 text-xl"></i> Descarcă Video Curat
         </button>
     </div>
 </div>

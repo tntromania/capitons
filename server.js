@@ -69,7 +69,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT CAPTION REMOVER (FFMPEG ULTRA - FIXED)
+// ENDPOINT CAPTION REMOVER (MATEMATICA FIXATA)
 // ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
@@ -84,54 +84,54 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
         
-        // Preluam datele din frontend
         const boxY = parseInt(req.body.boxY) || 70; 
         const boxH = parseInt(req.body.boxH) || 20; 
         const method = req.body.method || 'blur';
 
-        // 1. Aflam dimensiunile reale ale video-ului pentru a calcula Pixelii exacti (rezolva eroarea 'ih*70/100')
         exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${inputPath}"`, (probeErr, probeOut) => {
             if (probeErr) {
                  if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                 return res.status(500).json({ error: "Eroare la analiza metadatelor video-ului." });
+                 return res.status(500).json({ error: "Eroare la analiza metadatelor video." });
             }
 
-            // ffprobe returneaza ceva gen "1080x1920\n"
             const [width, height] = probeOut.trim().split('x').map(Number);
             
-            // 2. Calculam in PIXELI EXACȚI. Asta este "glonț-proof" pt FFmpeg.
+            // --- MATEMATICA REPARATA ---
+            // Setam o marja sigura de 10 pixeli. 
+            // Delogo are NEVOIE de acesti pixeli pe margini pentru a nu da "Conversion failed".
+            const safeMargin = 10;
+
             let pixelY = Math.floor((boxY / 100) * height);
             let pixelH = Math.floor((boxH / 100) * height);
             
-            // Setam zona de X (stanga-dreapta) la maxim posibil, dar lasand o marja de 4 pixeli 
-            // delogo are nevoie de pixeli pe margine din care sa "imprumute" culorile.
-            let pixelX = 4; 
-            let pixelW = width - 8; 
+            let pixelX = safeMargin; 
+            let pixelW = width - (safeMargin * 2); 
 
-            // Siguranta anti-crash: masca nu are voie sa iasa in afara video-ului.
-            if (pixelY + pixelH >= height) {
-                pixelH = height - pixelY - 4; // lasam 4px la baza jos
+            // Preventie 1: Daca userul trage sliderul prea sus, il blocam la marginea de sus
+            if (pixelY < safeMargin) {
+                pixelY = safeMargin;
             }
-            if (pixelY < 4) pixelY = 4;
+            
+            // Preventie 2: Daca inaltimea textului iese din ecran jos, o scurtam
+            if (pixelY + pixelH > height - safeMargin) {
+                pixelH = height - pixelY - safeMargin; 
+            }
+
+            // Preventie 3: Inaltimea nu are voie sa fie 0 sau mai mica
+            if (pixelH < 10) pixelH = 10;
 
             let filterString = "";
             let filterFlag = "";
 
             if (method === 'inpaint') {
-                // ULTRA INPAINTING (Delogo)
-                // band=20 este raza de pixeli de pe care ia mostre. Cu cat e mai mare, cu atat topeste textul mai bine in fundal.
+                // Fara "band=20" fortat. Lasam FFmpeg sa foloseasca marja lui naturala. Astfel nu mai crapa.
                 filterFlag = "-vf";
-                filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}:band=20`;
+                filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}`;
             } else {
-                // ULTRA BLUR
-                // boxblur=60:60 -> o zona de blur enorma, mascheaza orice urma de text ascutit.
                 filterFlag = "-filter_complex";
                 filterString = `[0:v]crop=${pixelW}:${pixelH}:${pixelX}:${pixelY},boxblur=60:60[b];[0:v][b]overlay=${pixelX}:${pixelY}`;
             }
             
-            // 3. Comanda finala: 
-            // -map 0:v (Ia video-ul)
-            // -map 0:a? (Copiaza sunetul DOAR daca exista. Asta opreste erorile pt video-uri mute).
             const ffmpegCommand = `ffmpeg -y -i "${inputPath}" ${filterFlag} "${filterString}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
             exec(ffmpegCommand, async (error, stdout, stderr) => {
@@ -139,8 +139,7 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
                 
                 if (error) {
                     console.error("FFMPEG ERROR:", stderr);
-                    // Daca totesi mai pica, returnam ultimele linii de pe Linux in Pop-Up sa stim clar!
-                    return res.status(500).json({ error: "Eroare la randare video: " + stderr.split('\n').slice(-3).join(' ') });
+                    return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-3).join(' ') });
                 }
 
                 user.credits -= 2; 

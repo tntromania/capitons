@@ -44,7 +44,6 @@ const authenticate = (req, res, next) => {
     } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
 };
 
-// --- RUTE AUTH ---
 app.post('/api/auth/google', async (req, res) => {
     try {
         const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
@@ -64,7 +63,9 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     res.json({ user: { name: user.name, picture: user.picture, credits: user.credits } });
 });
 
-// --- ENDPOINT PROPAINTER AI ---
+// ==========================================
+// ENDPOINT PROPAINTER AI (BUG FIXES)
+// ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -75,7 +76,6 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         if (!req.file) return res.status(400).json({ error: "Video lipsă." });
 
         const videoId = Date.now();
-        // Redenumim fisierul sa includa .mp4 pentru a-l putea citi API-ul din cloud
         const inputPath = path.join(DOWNLOAD_DIR, `input_${videoId}.mp4`);
         fs.renameSync(req.file.path, inputPath);
         
@@ -98,45 +98,43 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
 
             if (pixelY + pixelH > height) pixelH = height - pixelY;
 
-            // 1. GENERĂM MASCA VIDEO PENTRU AI (Fundal Negru, Cutie cu text Albă)
+            // 1. FIX FFMPEG MASK COMMAND
+            // Folosim -filter_complex pentru ca avem stream mapping [0:v] si [outv]
             const maskFilter = `[0:v]drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill,drawbox=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}:color=white:t=fill[outv]`;
-            const maskCommand = `ffmpeg -y -i "${inputPath}" -vf "${maskFilter}" -map "[outv]" -c:v libx264 -preset ultrafast -crf 23 -an "${maskPath}"`;
+            const maskCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${maskFilter}" -map "[outv]" -c:v libx264 -preset ultrafast -crf 23 -an "${maskPath}"`;
 
-            exec(maskCommand, async (error) => {
+            exec(maskCommand, async (error, stdout, stderr) => {
                 if (error) {
+                    console.error("FFMPEG MASK ERROR:", stderr);
                     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                     return res.status(500).json({ error: "Eroare la generarea mastii AI." });
                 }
 
                 try {
-                    // 2. DOMENIUL TĂU EXTREM DE IMPORTANT: 
-                    // Replicate va intra pe linkurile astea ca sa ia video-ul si masca. Trebuie sa fie reale.
                     const domain = 'https://captions.creatorsmart.ro';
                     const videoUrl = `${domain}/download/input_${videoId}.mp4`;
                     const maskUrl = `${domain}/download/mask_${videoId}.mp4`;
 
                     console.log(`[AI] Trimit date catre ProPainter: Video: ${videoUrl}`);
 
-                    // 3. APELĂM REPLICATE (ProPainter)
+                    // 2. APELĂM REPLICATE
                     const output = await replicate.run(
                       "jd7h/propainter:e5ea7ae04e97c96a0e14c70d8e4cb899abdf326a377c01f1c10966ccd6c6bae4",
                       {
                         input: {
                           video: videoUrl,
                           mask: maskUrl,
-                          fp16: true // Reduce timpul de randare si costurile masiv
+                          fp16: true
                         }
                       }
                     );
 
-                    console.log("[AI] Randare completă. Sursă S3:", output);
+                    console.log("[AI] Randare completă. Sursă:", output);
 
-                    // 4. Descărcăm rezultatul de pe serverul Replicate pe serverul tău
                     const response = await fetch(output);
                     const arrayBuffer = await response.arrayBuffer();
                     fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
 
-                    // 5. Curățăm mizeria
                     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                     if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
 
@@ -149,7 +147,7 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
                     console.error("Replicate Error:", apiError);
                     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                     if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
-                    res.status(500).json({ error: "Eroare Procesare AI. Așteaptă puțin și încearcă din nou." });
+                    res.status(500).json({ error: "Eroare Procesare AI. (Vezi consola pt detalii)" });
                 }
             });
         });
@@ -159,9 +157,15 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
     }
 });
 
+// FIX ENDPOINT DOWNLOAD: Trebuie sa trimitem fisierul direct ca Replicate sa-l citeasca corect
 app.get('/download/:filename', (req, res) => {
     const file = path.join(DOWNLOAD_DIR, req.params.filename);
-    if (fs.existsSync(file)) res.download(file); else res.status(404).send('Expirat.');
+    if (fs.existsSync(file)) {
+        // Folosim sendFile in loc de download ca AI-ul sa acceseze fisierul mai rapid
+        res.sendFile(file);
+    } else {
+        res.status(404).send('Expirat.');
+    }
 });
 
 app.listen(PORT, () => console.log(`🚀 ProPainter Captions ruleaza pe ${PORT}!`));

@@ -36,6 +36,13 @@
         
         .dropzone-active { border-color: #ec4899 !important; background-color: #fdf2f8 !important; }
         .scanner-line { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #ec4899; box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899; z-index: 20; opacity: 0.8; }
+
+        /* Custom Sliders for Box Placement */
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 4px; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ec4899; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* The Draggable / Editable Box */
+        #detection-box { transition: background-color 0.3s, backdrop-filter 0.3s; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); } /* Focuses attention on the box */
     </style>
 </head>
 <body class="md:p-4 h-[100dvh] flex flex-col">
@@ -81,14 +88,14 @@
 
     <div class="flex-1 flex flex-col lg:flex-row overflow-hidden border-t border-slate-100 z-10">
         
-        <aside class="w-full lg:w-[400px] bg-white border-r border-slate-200 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto shadow-[0_-10px_20px_rgba(0,0,0,0.05)] lg:shadow-none">
+        <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 flex flex-col z-20 shrink-0 h-1/2 lg:h-full overflow-y-auto shadow-[0_-10px_20px_rgba(0,0,0,0.05)] lg:shadow-none">
             <div class="p-6 flex-1 flex flex-col">
                 
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-eraser"></i></div>
                     <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Caption Eraser</h1>
                 </div>
-                <p class="text-slate-500 font-medium text-sm mb-8 leading-relaxed">Curăță videoclipurile de subtitrările text lipite peste imagine. AI-ul reconstruiește fundalul perfect.</p>
+                <p class="text-slate-500 font-medium text-sm mb-6 leading-relaxed">Încarcă video-ul și folosește controalele de mai jos pentru a așeza masca exact peste text.</p>
 
                 <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center cursor-pointer hover:border-pink-500 hover:bg-pink-50 transition-all group mb-8">
                     <div class="w-14 h-14 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center text-xl mx-auto mb-4 group-hover:bg-pink-100 group-hover:text-pink-600 transition-colors shadow-sm"><i class="fa-solid fa-cloud-arrow-up"></i></div>
@@ -97,7 +104,7 @@
                     <input type="file" id="fileInput" class="hidden" accept="video/mp4,video/quicktime">
                 </div>
 
-                <div id="fileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3 mb-8">
+                <div id="fileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3 mb-6">
                     <div class="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-pink-500 shadow-sm"><i class="fa-solid fa-file-video"></i></div>
                     <div class="flex-1 overflow-hidden">
                         <p id="fileName" class="font-bold text-sm text-slate-900 truncate"></p>
@@ -108,30 +115,42 @@
 
                 <div class="space-y-6">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Metodă AI</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. Metodă Acoperire</label>
                         <div class="grid grid-cols-2 gap-3">
                             <label class="cursor-pointer">
                                 <input type="radio" name="method" value="blur" class="hidden peer">
                                 <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all opacity-70 hover:opacity-100">
                                     <i class="fa-solid fa-droplet text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
-                                    <p class="text-xs font-bold text-slate-700">Pixelare</p>
+                                    <p class="text-xs font-bold text-slate-700">Pixelare / Blur</p>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="method" value="inpaint" class="hidden peer" checked>
                                 <div class="border-2 border-slate-200 rounded-xl p-3 text-center peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all">
                                     <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1 text-slate-400 peer-checked:text-pink-500"></i>
-                                    <p class="text-xs font-bold text-slate-700">Inpainting <span class="text-[0.6rem] bg-pink-100 text-pink-600 px-1 rounded">PRO</span></p>
+                                    <p class="text-xs font-bold text-slate-700">AI Inpainting <span class="text-[0.6rem] bg-pink-100 text-pink-600 px-1 rounded">PRO</span></p>
                                 </div>
                             </label>
                         </div>
                     </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Zona de acțiune</label>
-                        <select class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-700 outline-none focus:border-pink-500">
-                            <option value="bottom">Subtitrări Jos (TikTok / Reels)</option>
-                            <option value="center">Subtitrări Centru (Meme format)</option>
-                        </select>
+                    
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. Ajustează Masca pe Video</label>
+                        
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-sm font-medium text-slate-700">Poziție Verticală (Sus - Jos)</span>
+                            </div>
+                            <input type="range" id="box-y" min="0" max="90" value="70">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-sm font-medium text-slate-700">Grosime Text (Înălțime)</span>
+                            </div>
+                            <input type="range" id="box-h" min="5" max="50" value="20">
+                        </div>
+                        <p class="text-[0.65rem] text-slate-400"><i class="fa-solid fa-info-circle"></i> Trage de slidere pentru a acoperi exact subtitrarea din videoclipul din dreapta.</p>
                     </div>
                 </div>
 
@@ -158,17 +177,18 @@
                         <i class="fa-solid fa-film"></i>
                     </div>
                     <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Previzualizare Video</h2>
-                    <p class="text-slate-400 font-medium text-sm">Încarcă un video din stânga pentru a vizualiza cadrul și a aplica setările.</p>
+                    <p class="text-slate-400 font-medium text-sm">Încarcă un video din stânga pentru a vizualiza cadrul și a așeza masca.</p>
                 </div>
 
-                <div id="output-preview" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 relative z-10 group">
+                <div id="output-preview" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative z-10">
                     <video id="preview-player" class="w-full h-full object-contain" controls></video>
-                    <div id="detection-box" class="absolute bottom-[10%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg hidden flex items-center justify-center pointer-events-none transition-all duration-300">
-                        <span class="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">Zonă Detectată</span>
+                    
+                    <div id="detection-box" class="absolute left-0 right-0 border-y-2 border-pink-500 bg-pink-500/30 hidden flex items-center justify-center pointer-events-none transition-all duration-75" style="top: 70%; height: 20%;">
+                        <span class="bg-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md backdrop-blur-md">Zonă de Curățare</span>
                     </div>
                 </div>
 
-                <div id="output-loading" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-pink-500/50 relative z-10 flex flex-col items-center justify-center">
+                <div id="output-loading" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-pink-500/50 relative z-10 flex flex-col items-center justify-center">
                     <video id="processing-player" class="absolute inset-0 w-full h-full object-contain opacity-40 blur-sm" loop muted playsinline></video>
                     <div class="scanner-line animate-scan"></div>
                     <div class="relative z-10 text-center bg-black/60 p-6 rounded-2xl backdrop-blur-md border border-white/10">
@@ -178,7 +198,7 @@
                     </div>
                 </div>
 
-                <div id="output-result" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(236,72,153,0.15)] border border-white/10 relative z-10 group">
+                <div id="output-result" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(236,72,153,0.15)] border border-white/10 relative z-10 group">
                     <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-6">
                         <button id="download-btn" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
@@ -194,7 +214,7 @@
 </div>
 
 <script>
-    // === AUTH LOGIC UNIVERSAL ===
+    // === AUTH LOGIC FIX (Global Scope for Google) ===
     const loginModal = document.getElementById('login-modal');
     function openLoginModal() { loginModal.classList.add('show'); }
     function closeLoginModal() { loginModal.classList.remove('show'); }
@@ -202,24 +222,41 @@
     function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
     function removeToken() { document.cookie = "viralio_token=; domain=.creatorsmart.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
-    async function handleCredentialResponse(response) {
+    // EXPORTAM FUNCTIA GLOBAL PT GOOGLE
+    window.handleCredentialResponse = async function(response) {
+        console.log("Se încearcă login-ul cu token-ul Google...");
         try {
-            // Trimitem catre hub pentru validare / centralizare
+            // Asigura-te ca domeniul "downloader.creatorsmart.ro" are setat CORS corespunzator
             const res = await fetch('https://downloader.creatorsmart.ro/api/auth/google', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ credential: response.credential }) 
             });
             const data = await res.json();
-            if(data.token) { setToken(data.token); closeLoginModal(); updateUI(data.user); }
-        } catch (e) { alert('Eroare conexiune login.'); }
+            if(data.token) { 
+                setToken(data.token); 
+                closeLoginModal(); 
+                updateUI(data.user); 
+            } else {
+                console.error("Eroare la token:", data);
+                alert("Nu s-a putut genera sesiunea. Vezi consola.");
+            }
+        } catch (e) { 
+            console.error("Eroare Fetch Login:", e);
+            alert('Eroare conexiune. Backend-ul este pornit?'); 
+        }
     }
 
     function updateUI(user) {
-        document.getElementById('login-top-btn').classList.add('hidden');
-        document.getElementById('login-top-btn-mobile').classList.add('hidden');
+        const btnDesktop = document.getElementById('login-top-btn');
+        const btnMobile = document.getElementById('login-top-btn-mobile');
+        if(btnDesktop) btnDesktop.classList.add('hidden');
+        if(btnMobile) btnMobile.classList.add('hidden');
+
         const userNav = document.getElementById('user-profile');
-        userNav.classList.remove('hidden'); userNav.classList.add('flex');
+        userNav.classList.remove('hidden'); 
+        userNav.classList.add('flex');
+        
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
         document.getElementById('nav-credits').innerText = user.credits;
@@ -238,12 +275,37 @@
         }
     };
 
-    // === UI PREVIEW & DETECTIE ===
+    // === UI PREVIEW & DYNAMIC MASK ===
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const fileInfo = document.getElementById('fileInfo');
     const detectionBox = document.getElementById('detection-box');
     let currentVideoFile = null;
+
+    // Conectare Sliders la Cutie
+    const sliderY = document.getElementById('box-y');
+    const sliderH = document.getElementById('box-h');
+    
+    sliderY.addEventListener('input', (e) => {
+        detectionBox.style.top = e.target.value + '%';
+    });
+    
+    sliderH.addEventListener('input', (e) => {
+        detectionBox.style.height = e.target.value + '%';
+    });
+
+    // Conectare Radio Buttons (Blur vs Inpaint vizual)
+    document.querySelectorAll('input[name="method"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if(e.target.value === 'blur') {
+                detectionBox.style.backdropFilter = 'blur(15px)';
+                detectionBox.style.backgroundColor = 'rgba(236,72,153,0.1)';
+            } else {
+                detectionBox.style.backdropFilter = 'none';
+                detectionBox.style.backgroundColor = 'rgba(236,72,153,0.3)';
+            }
+        });
+    });
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dropzone-active'); });
@@ -254,15 +316,6 @@
     });
     fileInput.addEventListener('change', (e) => {
         if(e.target.files.length) handleFile(e.target.files[0]);
-    });
-
-    // Update the visual box when select changes
-    document.querySelector('select').addEventListener('change', (e) => {
-        if (e.target.value.includes('Centru')) {
-            detectionBox.className = "absolute top-[40%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg flex items-center justify-center pointer-events-none transition-all duration-300";
-        } else {
-            detectionBox.className = "absolute bottom-[10%] left-[10%] right-[10%] h-[20%] border-2 border-pink-500 bg-pink-500/20 rounded-lg flex items-center justify-center pointer-events-none transition-all duration-300";
-        }
     });
 
     function handleFile(file) {
@@ -287,7 +340,10 @@
         player.src = url;
         previewSection.classList.remove('hidden');
         
-        setTimeout(() => { detectionBox.classList.remove('hidden'); }, 1000);
+        // Afisam masca ajustabila
+        setTimeout(() => {
+            detectionBox.classList.remove('hidden');
+        }, 1000);
     }
 
     function clearFile() {
@@ -304,7 +360,7 @@
         document.getElementById('output-empty').classList.remove('hidden');
     }
 
-    // === PROCESS (FETCH SERVER.JS API) ===
+    // === PROCESS LOGIC ===
     document.getElementById('processBtn').addEventListener('click', async () => {
         const token = getToken();
         if(!token) { openLoginModal(); return; }
@@ -315,34 +371,26 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SE PROCESEAZĂ...';
 
         document.getElementById('output-preview').classList.add('hidden');
-        
         const loaderSection = document.getElementById('output-loading');
         const processingPlayer = document.getElementById('processing-player');
         processingPlayer.src = URL.createObjectURL(currentVideoFile);
         processingPlayer.play();
         loaderSection.classList.remove('hidden');
 
-        let step = 0; 
-        const msgs = ["Analiză OCR...", "Extragere text...", "Aplicare Inpainting...", "Randare finală..."];
-        const textInterval = setInterval(() => { 
-            step++; 
-            if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; 
-        }, 1500);
+        let step = 0; const msgs = ["Analiză cadre...", "Extragere zonă marcată...", "Aplicare Filtru...", "Randare finală..."];
+        const textInterval = setInterval(() => { step++; if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; }, 1500);
 
         // FORM DATA
         const formData = new FormData();
         formData.append('video', currentVideoFile);
         
-        // Preluam setarile de la selectul de zona si radio button (blur/inpaint)
-        const positionSelect = document.querySelector('select').value;
-        let positionArg = "bottom";
-        if (positionSelect.includes("Centru")) positionArg = "center";
-        
-        formData.append('position', positionArg);
+        // Trimitem Y si H catre server
+        formData.append('boxY', sliderY.value);
+        formData.append('boxH', sliderH.value);
         formData.append('method', document.querySelector('input[name="method"]:checked').value);
 
         try {
-            // Trimitem catre serverul curent
+            // Daca rulezi fisierul pe 'captions.creatorsmart.ro', apelezi ruta de backend
             const res = await fetch('/api/remove-caption', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -350,27 +398,25 @@
             });
             
             const data = await res.json();
-            
             clearInterval(textInterval); 
             loaderSection.classList.add('hidden');
             
-            if (!res.ok) throw new Error(data.error || "Eroare la procesare server.");
+            if (!res.ok) throw new Error(data.error || "Eroare la procesare");
 
-            // Afisam rezultatul
             const resultSection = document.getElementById('output-result');
             const resultPlayer = document.getElementById('result-player');
             resultPlayer.src = data.downloadUrl; 
             
-            // Setam butonul de Download real
             document.getElementById('download-btn').onclick = () => {
                 const a = document.createElement('a');
                 a.href = data.downloadUrl;
-                a.download = 'viralio_nocaption.mp4';
+                a.download = 'viralio_cleaned_video.mp4';
                 a.click();
             };
 
-            // Update live credite
-            document.getElementById('nav-credits').innerText = data.creditsLeft;
+            if(document.getElementById('nav-credits')) {
+                document.getElementById('nav-credits').innerText = data.creditsLeft;
+            }
             
             resultSection.classList.remove('hidden');
             btn.disabled = false; 

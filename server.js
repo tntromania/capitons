@@ -97,17 +97,21 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const inputPath = req.file.path;
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
-        const { position } = req.body; 
-
-        // Setam filtrul de blur pe zona selectata
-        let filterComplex = `[0:v]crop=iw:ih*0.20:0:ih*0.80,boxblur=20:20[b];[0:v][b]overlay=0:H*0.80`; // Default jos
-        if (position === "center") filterComplex = `[0:v]crop=iw:ih*0.25:0:ih*0.35,boxblur=20:20[b];[0:v][b]overlay=0:H*0.35`;
+        
+        // Preluam procentajele de la slidere (trimise de frontend)
+        const boxY = parseInt(req.body.boxY) || 70; // ex: 70% din inaltime (incepe jos)
+        const boxH = parseInt(req.body.boxH) || 20; // ex: grosime de 20%
+        
+        // Cream un filtru perfect matematic pt FFmpeg.
+        // ih*boxH/100 = Inaltimea mastii
+        // ih*boxY/100 = Pozitia mastii de la varf (top)
+        const filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100`;
 
         const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
         exec(ffmpegCommand, async (error, stdout, stderr) => {
             if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
-            if (error) return res.status(500).json({ error: "Eroare FFmpeg." });
+            if (error) return res.status(500).json({ error: "Eroare FFmpeg la procesare." });
 
             user.credits -= 2; 
             await user.save();

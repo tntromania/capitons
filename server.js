@@ -70,7 +70,6 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 
 // ==========================================
 // ENDPOINT CAPTION REMOVER
-// ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -83,15 +82,32 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const inputPath = req.file.path;
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
+        
+        // Preluam procentajele de la slidere si metoda
         const boxY = parseInt(req.body.boxY) || 70; 
         const boxH = parseInt(req.body.boxH) || 20; 
-        
-        const filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100`;
-        const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
+        const method = req.body.method || 'blur';
+
+        let filterComplex = "";
+        if (method === 'inpaint') {
+            // Folosim delogo pentru efectul de inpainting (reconstruiește pixelii de sub text)
+            filterComplex = `[0:v]delogo=x=1:y=H*${boxY}/100:w=W-2:h=H*${boxH}/100[outv]`;
+        } else {
+            // Pixelare / Blur clasic
+            filterComplex = `[0:v]crop=iw:ih*${boxH}/100:0:ih*${boxY}/100,boxblur=25:25[b];[0:v][b]overlay=0:H*${boxY}/100[outv]`;
+        }
+
+        // FIX FFMPEG CRASH: -map "[outv]" si -map 0:a? previn erorile daca video-ul nu are deloc sunet!
+        const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${filterComplex}" -map "[outv]" -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
         exec(ffmpegCommand, async (error, stdout, stderr) => {
             if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
-            if (error) return res.status(500).json({ error: "Eroare FFmpeg la procesare." });
+            
+            if (error) {
+                console.error("FFMPEG ERROR:", stderr);
+                // Returnam in UI exact motivul din Linux ca sa stim ce are pe viitor
+                return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-2).join(' ') });
+            }
 
             user.credits -= 2; 
             await user.save();

@@ -8,14 +8,11 @@ const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const multer = require('multer'); 
-const Replicate = require('replicate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
-
 const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR);
 
@@ -64,7 +61,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT PROPAINTER AI (BUG FIXES)
+// ENDPOINT CAPTION REMOVER (FFMPEG - FAST & STABLE)
 // ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
@@ -75,11 +72,8 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         }
         if (!req.file) return res.status(400).json({ error: "Video lipsă." });
 
+        const inputPath = req.file.path;
         const videoId = Date.now();
-        const inputPath = path.join(DOWNLOAD_DIR, `input_${videoId}.mp4`);
-        fs.renameSync(req.file.path, inputPath);
-        
-        const maskPath = path.join(DOWNLOAD_DIR, `mask_${videoId}.mp4`);
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
         
         const boxY = parseInt(req.body.boxY) || 70; 
@@ -92,63 +86,35 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
             }
 
             const [width, height] = probeOut.trim().split('x').map(Number);
+            
+            // Calcul matematic foarte conservator pentru a evita crash-ul delogo
             let pixelY = Math.floor((boxY / 100) * height);
             let pixelH = Math.floor((boxH / 100) * height);
-            let pixelX = 0; let pixelW = width; 
+            let pixelX = 10; // Margine de siguranta
+            let pixelW = width - 20; 
 
-            if (pixelY + pixelH > height) pixelH = height - pixelY;
+            // Preventie iesire din cadru
+            if (pixelY + pixelH > height - 10) {
+                pixelH = height - pixelY - 10;
+            }
+            if (pixelY < 10) pixelY = 10;
+            if (pixelH < 10) pixelH = 10;
 
-            // 1. FIX FFMPEG MASK COMMAND
-            // Folosim -filter_complex pentru ca avem stream mapping [0:v] si [outv]
-            const maskFilter = `[0:v]drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill,drawbox=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}:color=white:t=fill[outv]`;
-            const maskCommand = `ffmpeg -y -i "${inputPath}" -filter_complex "${maskFilter}" -map "[outv]" -c:v libx264 -preset ultrafast -crf 23 -an "${maskPath}"`;
+            const filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}`;
+            const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -vf "${filterString}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
 
-            exec(maskCommand, async (error, stdout, stderr) => {
+            exec(ffmpegCommand, async (error, stdout, stderr) => {
+                if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); 
+                
                 if (error) {
-                    console.error("FFMPEG MASK ERROR:", stderr);
-                    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                    return res.status(500).json({ error: "Eroare la generarea mastii AI." });
+                    console.error("FFMPEG ERROR:", stderr);
+                    return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-3).join(' ') });
                 }
 
-                try {
-                    const domain = 'https://captions.creatorsmart.ro';
-                    const videoUrl = `${domain}/download/input_${videoId}.mp4`;
-                    const maskUrl = `${domain}/download/mask_${videoId}.mp4`;
+                user.credits -= 2; 
+                await user.save();
 
-                    console.log(`[AI] Trimit date catre ProPainter: Video: ${videoUrl}`);
-
-                    // 2. APELĂM REPLICATE
-                    const output = await replicate.run(
-                      "jd7h/propainter:e5ea7ae04e97c96a0e14c70d8e4cb899abdf326a377c01f1c10966ccd6c6bae4",
-                      {
-                        input: {
-                          video: videoUrl,
-                          mask: maskUrl,
-                          fp16: true
-                        }
-                      }
-                    );
-
-                    console.log("[AI] Randare completă. Sursă:", output);
-
-                    const response = await fetch(output);
-                    const arrayBuffer = await response.arrayBuffer();
-                    fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
-
-                    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                    if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
-
-                    user.credits -= 2; 
-                    await user.save();
-
-                    res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });
-
-                } catch (apiError) {
-                    console.error("Replicate Error:", apiError);
-                    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                    if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
-                    res.status(500).json({ error: "Eroare Procesare AI. (Vezi consola pt detalii)" });
-                }
+                res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });
             });
         });
     } catch (e) {
@@ -157,15 +123,9 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
     }
 });
 
-// FIX ENDPOINT DOWNLOAD: Trebuie sa trimitem fisierul direct ca Replicate sa-l citeasca corect
 app.get('/download/:filename', (req, res) => {
     const file = path.join(DOWNLOAD_DIR, req.params.filename);
-    if (fs.existsSync(file)) {
-        // Folosim sendFile in loc de download ca AI-ul sa acceseze fisierul mai rapid
-        res.sendFile(file);
-    } else {
-        res.status(404).send('Expirat.');
-    }
+    if (fs.existsSync(file)) res.sendFile(file); else res.status(404).send('Expirat.');
 });
 
-app.listen(PORT, () => console.log(`🚀 ProPainter Captions ruleaza pe ${PORT}!`));
+app.listen(PORT, () => console.log(`🚀 Fast Captions ruleaza pe ${PORT}!`));

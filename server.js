@@ -27,7 +27,7 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
 const UserSchema = new mongoose.Schema({
-    googleId: String, email: String, name: String, picture: String, credits: { type: Number, default: 3 }
+    googleId: String, email: String, name: String, picture: String, credits: { type: Number, default: 5 }
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -47,7 +47,7 @@ app.post('/api/auth/google', async (req, res) => {
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
         if (!user) {
-            user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture, credits: 3 });
+            user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture, credits: 5 });
             await user.save();
         }
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -66,7 +66,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
         const user = await User.findById(req.userId);
-        if (user.credits < 2) {
+        if (user.credits < 1) {
             if (req.file) fs.unlinkSync(req.file.path);
             return res.status(403).json({ error: "Cost: 2 Credite. Fonduri insuficiente." });
         }
@@ -111,7 +111,7 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
                     return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-3).join(' ') });
                 }
 
-                user.credits -= 2; 
+                user.credits -= 1; 
                 await user.save();
 
                 res.json({ status: 'ok', downloadUrl: `/download/clean_${videoId}.mp4`, creditsLeft: user.credits });

@@ -204,10 +204,10 @@
         </div>
     </aside>
 
-    <section class="flex-1 relative overflow-hidden h-1/2 lg:h-full flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-slate-100 shadow-inner">
+    <section class="flex-1 relative overflow-y-auto h-1/2 lg:h-full flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-slate-100 shadow-inner">
         <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 1px 1px, #4f46e5 1px, transparent 0); background-size: 24px 24px;"></div>
 
-        <div class="relative w-full h-full max-w-4xl mx-auto flex items-center justify-center z-10 p-4">
+        <div class="relative w-full h-full mx-auto flex items-center justify-center z-10 p-4">
             
             <div id="output-empty" class="text-center w-full max-w-md bg-white p-10 rounded-[2rem] border border-slate-200 shadow-xl transition-all">
                 <div class="w-24 h-24 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center text-5xl text-slate-300 mx-auto mb-6"><i class="fa-solid fa-film"></i></div>
@@ -215,7 +215,7 @@
                 <p class="text-slate-500 font-medium text-sm leading-relaxed">Încarcă un video din panoul din stânga pentru a vizualiza cadrul și a așeza masca protectoare.</p>
             </div>
 
-            <div id="output-preview" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-[#0f172a] rounded-2xl overflow-hidden shadow-2xl relative select-none ring-4 ring-slate-900/10">
+            <div id="output-preview" class="hidden bg-[#0f172a] rounded-2xl overflow-hidden shadow-2xl relative select-none ring-4 ring-slate-900/10">
                 <video id="preview-player" class="w-full h-full object-contain" controls></video>
                 
                 <div id="detection-box" class="absolute hidden group" style="top: 70%; left: 10%; width: 80%; height: 20%;">
@@ -236,7 +236,7 @@
                 </div>
             </div>
 
-            <div id="output-loading" class="hidden w-full max-w-2xl aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-pink-500/50 relative flex flex-col items-center justify-center">
+            <div id="output-loading" class="hidden bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-pink-500/50 relative flex flex-col items-center justify-center">
                 <video id="processing-player" class="absolute inset-0 w-full h-full object-contain opacity-30 blur-md" loop muted playsinline></video>
                 <div class="scanner-line animate-scan"></div>
                 <div class="relative z-10 text-center bg-black/40 p-8 rounded-3xl backdrop-blur-md border border-white/10 shadow-2xl">
@@ -247,7 +247,7 @@
             </div>
 
             <div id="output-result" class="hidden w-full max-w-2xl flex-col items-center gap-6 z-10">
-                <div class="w-full aspect-[9/16] sm:aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative ring-4 ring-green-500/20">
+                <div id="output-result-video-wrapper" class="bg-black rounded-2xl overflow-hidden shadow-2xl relative ring-4 ring-green-500/20">
                     <video id="result-player" class="w-full h-full object-contain" controls autoplay loop></video>
                     <div class="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2">
                         <i class="fa-solid fa-check-circle"></i> Curățat cu succes
@@ -334,7 +334,6 @@ const valW = document.getElementById('val-w');
 const detectionBox = document.getElementById('detection-box');
 const previewContainer = document.getElementById('output-preview');
 
-// Sincronizare initiala cand se misca din slidere
 function updateBoxFromSliders() {
     detectionBox.style.top = sliderY.value + '%'; valY.innerText = sliderY.value + '%';
     detectionBox.style.height = sliderH.value + '%'; valH.innerText = sliderH.value + '%';
@@ -347,7 +346,6 @@ sliderH.addEventListener('input', updateBoxFromSliders);
 sliderX.addEventListener('input', updateBoxFromSliders);
 sliderW.addEventListener('input', updateBoxFromSliders);
 
-// Variabile de stare pentru mouse
 let isDraggingBox = false;
 let isResizingBox = false;
 let currentResizer = null;
@@ -355,7 +353,6 @@ let currentResizer = null;
 let startMouseY = 0, startMouseX = 0;
 let startBoxTop = 0, startBoxLeft = 0, startBoxW = 0, startBoxH = 0;
 
-// Evenimentul de CLICK/MOUSEDOWN pe cutie
 detectionBox.addEventListener('mousedown', (e) => {
     if (e.target.classList.contains('resizer')) {
         isResizingBox = true;
@@ -372,10 +369,9 @@ detectionBox.addEventListener('mousedown', (e) => {
     startBoxW = detectionBox.offsetWidth;
     startBoxH = detectionBox.offsetHeight;
     
-    e.preventDefault(); // Opreste bug-urile de selectare de text pe fundal
+    e.preventDefault(); 
 });
 
-// Evenimentul de MISCARE A MOUSE-ULUI
 document.addEventListener('mousemove', (e) => {
     if (!isDraggingBox && !isResizingBox) return;
     
@@ -391,7 +387,6 @@ document.addEventListener('mousemove', (e) => {
     const deltaY = e.clientY - startMouseY;
 
     if (isDraggingBox) {
-        // Logica de Free Move
         newTop += deltaY;
         newLeft += deltaX;
         
@@ -401,44 +396,37 @@ document.addEventListener('mousemove', (e) => {
         if (newLeft + newW > containerW) newLeft = containerW - newW;
     } 
     else if (isResizingBox) {
-        // Logica de Resize pentru fiecare din cele 8 puncte
-        if (currentResizer.includes('r')) newW += deltaX; // Dreapta
-        if (currentResizer.includes('l')) { newW -= deltaX; newLeft += deltaX; } // Stanga
-        if (currentResizer.includes('b')) newH += deltaY; // Jos
-        if (currentResizer.includes('t')) { newH -= deltaY; newTop += deltaY; } // Sus
+        if (currentResizer.includes('r')) newW += deltaX; 
+        if (currentResizer.includes('l')) { newW -= deltaX; newLeft += deltaX; } 
+        if (currentResizer.includes('b')) newH += deltaY; 
+        if (currentResizer.includes('t')) { newH -= deltaY; newTop += deltaY; } 
 
-        // Setam o marime minima sa nu se intoarca pe dos
         const minSize = 20;
         if (newW < minSize) { if(currentResizer.includes('l')) newLeft -= (minSize - newW); newW = minSize; }
         if (newH < minSize) { if(currentResizer.includes('t')) newTop -= (minSize - newH); newH = minSize; }
 
-        // Mentinem box-ul in container cand tragem prea mult
         if (newLeft < 0) { newW += newLeft; newLeft = 0; }
         if (newTop < 0) { newH += newTop; newTop = 0; }
         if (newLeft + newW > containerW) newW = containerW - newLeft;
         if (newTop + newH > containerH) newH = containerH - newTop;
     }
 
-    // Convertim in procente
     let pctY = (newTop / containerH) * 100;
     let pctX = (newLeft / containerW) * 100;
     let pctH = (newH / containerH) * 100;
     let pctW = (newW / containerW) * 100;
 
-    // Aplicam noile valori pe cutie
     detectionBox.style.top = pctY + '%';
     detectionBox.style.left = pctX + '%';
     detectionBox.style.height = pctH + '%';
     detectionBox.style.width = pctW + '%';
     
-    // Actualizam sliderele ca sa ramana sincronizate perfect!
     sliderY.value = Math.round(pctY); valY.innerText = Math.round(pctY) + '%';
     sliderX.value = Math.round(pctX); valX.innerText = Math.round(pctX) + '%';
     sliderH.value = Math.round(pctH); valH.innerText = Math.round(pctH) + '%';
     sliderW.value = Math.round(pctW); valW.innerText = Math.round(pctW) + '%';
 });
 
-// Oprire event
 document.addEventListener('mouseup', () => { 
     isDraggingBox = false; 
     isResizingBox = false; 
@@ -446,7 +434,7 @@ document.addEventListener('mouseup', () => {
 });
 
 
-// === UPLOAD & PREVIEW ===
+// === UPLOAD & PREVIEW (CU FIX PENTRU BARE NEGRE) ===
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const fileInfo = document.getElementById('fileInfo');
@@ -473,10 +461,33 @@ function handleFile(file) {
     document.getElementById('output-loading').classList.add('hidden');
     
     const previewSection = document.getElementById('output-preview');
-    document.getElementById('preview-player').src = URL.createObjectURL(file);
-    previewSection.classList.remove('hidden');
+    const previewPlayer = document.getElementById('preview-player');
     
-    setTimeout(() => { detectionBox.classList.remove('hidden'); }, 500);
+    previewPlayer.src = URL.createObjectURL(file);
+    
+    // AICI E SECRETUL CARE REZOLVA PROBLEMA BARELOR NEGRE!
+    previewPlayer.onloadedmetadata = function() {
+        const ratio = this.videoWidth / this.videoHeight;
+        
+        const containers = [
+            document.getElementById('output-preview'),
+            document.getElementById('output-loading'),
+            document.getElementById('output-result-video-wrapper')
+        ];
+        
+        containers.forEach(c => {
+            if(!c) return;
+            // Setam cutiile video sa ia FIX forma video-ului, fara fundal in plus!
+            c.style.aspectRatio = ratio;
+            c.style.maxHeight = '70vh';
+            c.style.maxWidth = '100%';
+            c.style.margin = '0 auto';
+        });
+        
+        previewSection.classList.remove('hidden');
+        previewSection.classList.add('flex'); 
+        setTimeout(() => { detectionBox.classList.remove('hidden'); }, 300);
+    };
 }
 
 function clearFile() {
@@ -487,7 +498,8 @@ function clearFile() {
     const p3 = document.getElementById('processing-player'); p3.pause(); p3.removeAttribute('src'); p3.load();
 
     fileInfo.classList.add('hidden'); fileInfo.classList.remove('flex'); dropZone.classList.remove('hidden');
-    document.getElementById('output-preview').classList.add('hidden'); detectionBox.classList.add('hidden');
+    document.getElementById('output-preview').classList.add('hidden'); document.getElementById('output-preview').classList.remove('flex');
+    detectionBox.classList.add('hidden');
     document.getElementById('output-result').classList.add('hidden'); document.getElementById('output-loading').classList.add('hidden'); document.getElementById('output-empty').classList.remove('hidden');
 }
 
@@ -502,12 +514,14 @@ document.getElementById('processBtn').addEventListener('click', async () => {
 
     document.getElementById('preview-player').pause();
     document.getElementById('output-preview').classList.add('hidden');
+    document.getElementById('output-preview').classList.remove('flex');
     
     const loaderSection = document.getElementById('output-loading');
     const processingPlayer = document.getElementById('processing-player');
     processingPlayer.src = URL.createObjectURL(currentVideoFile);
     processingPlayer.play();
     loaderSection.classList.remove('hidden');
+    loaderSection.classList.add('flex');
 
     let step = 0; const msgs = ["Analiză cadre...", "Marcare coordonate mască...", "Aplicare Filtru AI Inpaint...", "Randare finală..."];
     const textInterval = setInterval(() => { step++; if(step < msgs.length) document.getElementById('loading-text').innerText = msgs[step]; }, 1500);
@@ -528,7 +542,7 @@ document.getElementById('processBtn').addEventListener('click', async () => {
         });
         
         const data = await res.json();
-        clearInterval(textInterval); loaderSection.classList.add('hidden');
+        clearInterval(textInterval); loaderSection.classList.add('hidden'); loaderSection.classList.remove('flex');
         
         if (!res.ok) throw new Error(data.error || "Eroare la procesare server.");
 
@@ -551,7 +565,7 @@ document.getElementById('processBtn').addEventListener('click', async () => {
         
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-400"></i> CURĂȚĂ TEXTUL';
     } catch (err) {
-        clearInterval(textInterval); loaderSection.classList.add('hidden'); processingPlayer.pause(); document.getElementById('output-empty').classList.remove('hidden');
+        clearInterval(textInterval); loaderSection.classList.add('hidden'); loaderSection.classList.remove('flex'); processingPlayer.pause(); document.getElementById('output-empty').classList.remove('hidden');
         alert("Eroare: " + err.message);
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eraser text-pink-400"></i> CURĂȚĂ TEXTUL';
     }

@@ -63,12 +63,15 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 // ==========================================
 // ENDPOINT CAPTION REMOVER (FFMPEG - FAST & STABLE)
 // ==========================================
+// ==========================================
+// ENDPOINT CAPTION REMOVER (FFMPEG - FAST & STABLE)
+// ==========================================
 app.post('/api/remove-caption', authenticate, upload.single('video'), async (req, res) => {
     try {
         const user = await User.findById(req.userId);
         if (user.credits < 1) {
             if (req.file) fs.unlinkSync(req.file.path);
-            return res.status(403).json({ error: "Cost: 2 Credite. Fonduri insuficiente." });
+            return res.status(403).json({ error: "Cost: 1 Credit. Fonduri insuficiente." });
         }
         if (!req.file) return res.status(400).json({ error: "Video lipsă." });
 
@@ -76,11 +79,11 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
         
-// Preluăm toate cele 4 coordonate din frontend
-        const boxY = parseInt(req.body.boxY) || 70; 
-        const boxH = parseInt(req.body.boxH) || 20; 
-        const boxX = parseInt(req.body.boxX) || 10; 
-        const boxW = parseInt(req.body.boxW) || 80; 
+        // REPARATIE: Acum acceptam si valoarea 0 (lipit de margini) fara erori
+        const boxY = req.body.boxY !== undefined ? parseInt(req.body.boxY) : 70; 
+        const boxH = req.body.boxH !== undefined ? parseInt(req.body.boxH) : 20; 
+        const boxX = req.body.boxX !== undefined ? parseInt(req.body.boxX) : 10; 
+        const boxW = req.body.boxW !== undefined ? parseInt(req.body.boxW) : 80; 
 
         exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${inputPath}"`, (probeErr, probeOut) => {
             if (probeErr) {
@@ -90,23 +93,20 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
 
             const [width, height] = probeOut.trim().split('x').map(Number);
             
-            // Calculam coordonatele dinamice pe axa Y (Inaltime)
+            // Calculam pixelii cu exactitate matematica
             let pixelY = Math.floor((boxY / 100) * height);
             let pixelH = Math.floor((boxH / 100) * height);
-            
-            // Calculam coordonatele dinamice pe axa X (Latime)
             let pixelX = Math.floor((boxX / 100) * width);
             let pixelW = Math.floor((boxW / 100) * width);
 
-            // Preventie iesire din cadru sus-jos
-            if (pixelY + pixelH > height - 10) pixelH = height - pixelY - 10;
-            if (pixelY < 10) pixelY = 10;
-            if (pixelH < 10) pixelH = 10;
+            // Preventie inteligenta (scadut la 2 pixeli pentru a permite lipirea aproape totala de margine)
+            if (pixelY + pixelH > height - 2) pixelH = height - pixelY - 2;
+            if (pixelY < 2) pixelY = 2;
+            if (pixelH < 2) pixelH = 2;
 
-            // Preventie iesire din cadru stanga-dreapta
-            if (pixelX + pixelW > width - 10) pixelW = width - pixelX - 10;
-            if (pixelX < 10) pixelX = 10;
-            if (pixelW < 10) pixelW = 10;
+            if (pixelX + pixelW > width - 2) pixelW = width - pixelX - 2;
+            if (pixelX < 2) pixelX = 2;
+            if (pixelW < 2) pixelW = 2;
 
             const filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}`;
             const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -vf "${filterString}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;
@@ -116,7 +116,7 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
                 
                 if (error) {
                     console.error("FFMPEG ERROR:", stderr);
-                    return res.status(500).json({ error: "Eroare video: " + stderr.split('\n').slice(-3).join(' ') });
+                    return res.status(500).json({ error: "Eroare video. Încearcă o zonă puțin mai mică." });
                 }
 
                 user.credits -= 1; 

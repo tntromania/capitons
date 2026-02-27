@@ -76,8 +76,11 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
         const videoId = Date.now();
         const outputPath = path.join(DOWNLOAD_DIR, `clean_${videoId}.mp4`);
         
+// Preluăm toate cele 4 coordonate din frontend
         const boxY = parseInt(req.body.boxY) || 70; 
         const boxH = parseInt(req.body.boxH) || 20; 
+        const boxX = parseInt(req.body.boxX) || 10; 
+        const boxW = parseInt(req.body.boxW) || 80; 
 
         exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${inputPath}"`, (probeErr, probeOut) => {
             if (probeErr) {
@@ -87,18 +90,23 @@ app.post('/api/remove-caption', authenticate, upload.single('video'), async (req
 
             const [width, height] = probeOut.trim().split('x').map(Number);
             
-            // Calcul matematic foarte conservator pentru a evita crash-ul delogo
+            // Calculam coordonatele dinamice pe axa Y (Inaltime)
             let pixelY = Math.floor((boxY / 100) * height);
             let pixelH = Math.floor((boxH / 100) * height);
-            let pixelX = 10; // Margine de siguranta
-            let pixelW = width - 20; 
+            
+            // Calculam coordonatele dinamice pe axa X (Latime)
+            let pixelX = Math.floor((boxX / 100) * width);
+            let pixelW = Math.floor((boxW / 100) * width);
 
-            // Preventie iesire din cadru
-            if (pixelY + pixelH > height - 10) {
-                pixelH = height - pixelY - 10;
-            }
+            // Preventie iesire din cadru sus-jos
+            if (pixelY + pixelH > height - 10) pixelH = height - pixelY - 10;
             if (pixelY < 10) pixelY = 10;
             if (pixelH < 10) pixelH = 10;
+
+            // Preventie iesire din cadru stanga-dreapta
+            if (pixelX + pixelW > width - 10) pixelW = width - pixelX - 10;
+            if (pixelX < 10) pixelX = 10;
+            if (pixelW < 10) pixelW = 10;
 
             const filterString = `delogo=x=${pixelX}:y=${pixelY}:w=${pixelW}:h=${pixelH}`;
             const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -vf "${filterString}" -map 0:v -map 0:a? -c:v libx264 -preset ultrafast -crf 23 -c:a copy "${outputPath}"`;

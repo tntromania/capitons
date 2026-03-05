@@ -65,7 +65,6 @@ if (!user) {
                 voice_characters: 3000   // Sincronizat cu HUB
             });
             await user.save();
-        }wait user.save();
         }
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token: sessionToken, user: { name: user.name, picture: user.picture, credits: user.credits } });

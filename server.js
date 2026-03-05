@@ -26,10 +26,19 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ Captions conectat la MongoDB!'))
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
+// 1. Schema unică, completă și identică pe toate aplicațiile
 const UserSchema = new mongoose.Schema({
-    googleId: String, email: String, name: String, picture: String, credits: { type: Number, default: 5 }
+    googleId: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
+    name: String,
+    picture: String,
+    credits: { type: Number, default: 10 }, // Universal: 10 credite
+    voice_characters: { type: Number, default: 3000 }, // Universal: 3000 caractere
+    createdAt: { type: Date, default: Date.now }
 });
-const User = mongoose.model('User', UserSchema);
+
+// 2. Crearea modelului (Atenție la o eroare comună în Mongoose unde re-definirea aruncă eroare)
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -46,9 +55,17 @@ app.post('/api/auth/google', async (req, res) => {
         const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
-        if (!user) {
-            user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture, credits: 5 });
+if (!user) {
+            user = new User({ 
+                googleId: payload.sub, 
+                email: payload.email, 
+                name: payload.name, 
+                picture: payload.picture, 
+                credits: 10,             // Sincronizat cu HUB
+                voice_characters: 3000   // Sincronizat cu HUB
+            });
             await user.save();
+        }wait user.save();
         }
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token: sessionToken, user: { name: user.name, picture: user.picture, credits: user.credits } });

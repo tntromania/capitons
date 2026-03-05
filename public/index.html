@@ -577,5 +577,50 @@ document.getElementById('processBtn').addEventListener('click', async () => {
     }
 });
 </script>
+<style>
+    @keyframes premiumShine {
+        0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { transform: translateX(250%) skewX(-20deg); opacity: 0; }
+    }
+    .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+    .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
+</style>
+
+<div class="fixed bottom-5 right-5 md:right-6 z-[100000] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] hover:bg-white/90">
+    
+    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300">
+            <i class="fa-brands fa-discord text-sm"></i>
+        </div>
+        <div class="flex-col hidden sm:flex text-left">
+            <span class="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span>
+            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-black transition-colors duration-300">Suport Discord</span>
+        </div>
+    </a>
+
+    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
+
+    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
+        
+        <div class="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
+            
+            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
+                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
+            </div>
+            
+            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 relative z-20"></i>
+            
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30 shadow-sm"></span>
+        </div>
+        
+        <div class="flex-col hidden sm:flex text-left">
+            <span class="text-[0.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5 drop-shadow-sm">Giveaways</span>
+            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-[#0088cc] transition-colors duration-300">Telegram VIP</span>
+        </div>
+    </a>
+
+</div>
 </body>
 </html>
